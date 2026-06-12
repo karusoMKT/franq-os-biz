@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Hamburger, Soup, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Sandwich, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,7 +16,7 @@ const SEGMENTS = [
   { id: "Sorveteria", label: "Sorveteria", icon: IceCream, color: "text-pink-500" },
   { id: "Açaiteria", label: "Açaiteria", icon: IceCream, color: "text-purple-500" },
   { id: "Cafeteria", label: "Cafeteria", icon: Coffee, color: "text-amber-700" },
-  { id: "Lanchonete / Fast Food", label: "Lanchonete / Fast Food", icon: Hamburger, color: "text-orange-500" },
+  { id: "Lanchonete / Fast Food", label: "Lanchonete / Fast Food", icon: Sandwich, color: "text-orange-500" },
   { id: "Restaurante", label: "Restaurante", icon: UtensilsCrossed, color: "text-red-500" },
   { id: "Outro segmento", label: "Outro segmento", icon: MoreHorizontal, color: "text-slate-500" },
 ];
