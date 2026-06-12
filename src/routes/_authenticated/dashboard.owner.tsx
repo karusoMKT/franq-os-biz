@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
@@ -144,6 +144,3 @@ function StatCard({ icon, label, value, suffix, loading }: { icon: React.ReactNo
 function EmptyState({ text }: { text: string }) {
   return <Card className="p-6 text-center text-sm text-muted-foreground">{text}</Card>;
 }
-
-// re-use unused import warning fix
-void useState;
