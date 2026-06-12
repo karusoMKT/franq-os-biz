@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Entrar - FranqOS" },
@@ -26,7 +27,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then((res: { data: { session: unknown | null } }) => {
+    supabase.auth.getSession().then((res) => {
       if (res.data.session) navigate({ to: "/dashboard" });
     });
   }, [navigate]);
@@ -80,7 +81,14 @@ function AuthPage() {
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                {mode === "signin" && (
+                  <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground">
+                    Esqueci a senha
+                  </Link>
+                )}
+              </div>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>

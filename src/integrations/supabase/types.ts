@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          company_id: string | null
+          created_at: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          profile_id: string | null
+          record_id: string | null
+          table_name: string
+          unit_id: string | null
+        }
+        Insert: {
+          action: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          profile_id?: string | null
+          record_id?: string | null
+          table_name: string
+          unit_id?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          profile_id?: string | null
+          record_id?: string | null
+          table_name?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "audit_logs_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_executions: {
         Row: {
           checklist_id: string
@@ -309,6 +377,136 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          profile_id: string | null
+          title: string
+          unit_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          profile_id?: string | null
+          title: string
+          unit_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          profile_id?: string | null
+          title?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "notifications_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      occurrences: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          reported_by: string | null
+          resolved_at: string | null
+          severity: string | null
+          status: string | null
+          title: string
+          unit_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          title: string
+          unit_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          reported_by?: string | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          title?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "occurrences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occurrences_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "occurrences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "occurrences_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operational_scores: {
         Row: {
           id: string
@@ -502,6 +700,142 @@ export type Database = {
           },
           {
             foreignKeyName: "revenues_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          company_id: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          status: string | null
+          title: string
+          unit_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title: string
+          unit_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string | null
+          title?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "tasks_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unit_targets: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          margin_target: number | null
+          profit_target: number | null
+          revenue_target: number | null
+          ticket_average_target: number | null
+          unit_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          margin_target?: number | null
+          profit_target?: number | null
+          revenue_target?: number | null
+          ticket_average_target?: number | null
+          unit_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          margin_target?: number | null
+          profit_target?: number | null
+          revenue_target?: number | null
+          ticket_average_target?: number | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_targets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_targets_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "unit_targets_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
