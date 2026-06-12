@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FranqosLogo } from "@/components/franqos-logo";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -51,10 +52,8 @@ function LoginPage() {
       }}
     >
       <div className="w-full max-w-sm text-white">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold tracking-tight">
-            FRANQ<span className="text-sky-400">OS</span>
-          </h1>
+        <div className="text-center mb-10 flex flex-col items-center">
+          <FranqosLogo className="h-28 w-28 rounded-2xl bg-white shadow-lg" />
           <p className="mt-6 text-base text-white/90">Bem-vindo de volta!</p>
           <p className="mt-2 text-sm text-white/60">
             Faça login para acessar seu painel.

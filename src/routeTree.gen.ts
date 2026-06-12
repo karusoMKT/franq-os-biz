@@ -16,7 +16,11 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
 import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard.manager'
 import { Route as AuthenticatedDashboardEmployeeRouteImport } from './routes/_authenticated/dashboard.employee'
@@ -55,9 +59,30 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPopsRoute = AuthenticatedPopsRouteImport.update({
+  id: '/pops',
+  path: '/pops',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedChecklistsRoute = AuthenticatedChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardOwnerRoute =
@@ -86,7 +111,11 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/checklists': typeof AuthenticatedChecklistsRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pops': typeof AuthenticatedPopsRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -98,7 +127,11 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/checklists': typeof AuthenticatedChecklistsRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pops': typeof AuthenticatedPopsRoute
+  '/profile': typeof AuthenticatedProfileRoute
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -112,7 +145,11 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/checklists': typeof AuthenticatedChecklistsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/pops': typeof AuthenticatedPopsRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -126,7 +163,11 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/checklists'
     | '/dashboard'
+    | '/notifications'
+    | '/pops'
+    | '/profile'
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
@@ -138,7 +179,11 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/checklists'
     | '/dashboard'
+    | '/notifications'
+    | '/pops'
+    | '/profile'
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
@@ -151,7 +196,11 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/checklists'
     | '/_authenticated/dashboard'
+    | '/_authenticated/notifications'
+    | '/_authenticated/pops'
+    | '/_authenticated/profile'
     | '/_authenticated/dashboard/employee'
     | '/_authenticated/dashboard/manager'
     | '/_authenticated/dashboard/owner'
@@ -218,11 +267,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pops': {
+      id: '/_authenticated/pops'
+      path: '/pops'
+      fullPath: '/pops'
+      preLoaderRoute: typeof AuthenticatedPopsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklists': {
+      id: '/_authenticated/checklists'
+      path: '/checklists'
+      fullPath: '/checklists'
+      preLoaderRoute: typeof AuthenticatedChecklistsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard/owner': {
@@ -268,11 +345,19 @@ const AuthenticatedDashboardRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedChecklistsRoute: typeof AuthenticatedChecklistsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedPopsRoute: typeof AuthenticatedPopsRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedChecklistsRoute: AuthenticatedChecklistsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedPopsRoute: AuthenticatedPopsRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
