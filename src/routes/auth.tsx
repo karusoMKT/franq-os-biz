@@ -35,9 +35,16 @@ function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      toast.success("Login realizado com sucesso!");
       navigate({ to: "/dashboard" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao entrar");
+      const raw = err instanceof Error ? err.message : "";
+      const msg = /invalid login credentials|invalid_credentials/i.test(raw)
+        ? "E-mail ou senha incorretos."
+        : /email not confirmed/i.test(raw)
+          ? "Confirme seu e-mail antes de entrar."
+          : raw || "Erro ao entrar";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
