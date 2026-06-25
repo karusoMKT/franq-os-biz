@@ -82,21 +82,34 @@ function OnboardingPage() {
       console.log("[onboarding] companies criada →", company);
       setImportProgress(40);
 
-      // 2. Profile (UPSERT — perfil pode já existir)
-      const profilePayload = {
-        user_id: u.user.id,
+      // 2. Profile (UPDATE — perfil já existe via signup)
+      const profilePatch = {
         company_id: company.id,
         name: (u.user.user_metadata?.name as string) ?? u.user.email,
         email: u.user.email,
         role: "owner" as const,
       };
-      console.log("[onboarding] UPSERT profiles payload:", profilePayload);
-      const { error: pErr } = await supabase.from("profiles").upsert(profilePayload, { onConflict: "user_id" });
+      console.log("[onboarding] UPDATE profiles patch:", profilePatch);
+      const { data: updatedProfile, error: pErr } = await supabase
+        .from("profiles")
+        .update(profilePatch)
+        .eq("user_id", u.user.id)
+        .select()
+        .maybeSingle();
       if (pErr) {
-        console.error("[onboarding] profiles UPSERT erro:", { code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint });
+        console.error("[onboarding] profiles UPDATE erro:", { code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint });
         throw pErr;
       }
-      console.log("[onboarding] profile vinculado");
+      if (!updatedProfile) {
+        // fallback: profile não existia ainda → cria
+        console.warn("[onboarding] profile não encontrado, fazendo INSERT");
+        const { error: iErr } = await supabase.from("profiles").insert({ user_id: u.user.id, ...profilePatch });
+        if (iErr) {
+          console.error("[onboarding] profiles INSERT fallback erro:", { code: iErr.code, message: iErr.message, details: iErr.details, hint: iErr.hint });
+          throw iErr;
+        }
+      }
+      console.log("[onboarding] profile vinculado à company");
       setImportProgress(70);
 
       // 3. First unit
