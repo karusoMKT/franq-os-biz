@@ -62,40 +62,59 @@ function OnboardingPage() {
     setImportProgress(10);
     try {
       const { data: u } = await supabase.auth.getUser();
+      console.log("[onboarding] auth.getUser →", u.user?.id, u.user?.email);
       if (!u.user) throw new Error("Sessão expirada");
 
-      // 1. Company (trigger seeds defaults)
+      // 0. profile atual
+      const { data: existingProfile, error: epErr } = await supabase
+        .from("profiles").select("id,user_id,company_id,role").eq("user_id", u.user.id).maybeSingle();
+      console.log("[onboarding] profile atual →", existingProfile, "err:", epErr);
+
+      // 1. Company
+      const companyPayload = { name: unitName || `${segment} de ${u.user.email}`, segment };
+      console.log("[onboarding] INSERT companies payload:", companyPayload);
       const { data: company, error: cErr } = await supabase
-        .from("companies")
-        .insert({ name: unitName || `${segment} de ${u.user.email}`, segment })
-        .select()
-        .single();
-      if (cErr) throw cErr;
+        .from("companies").insert(companyPayload).select().single();
+      if (cErr) {
+        console.error("[onboarding] companies INSERT erro:", { code: cErr.code, message: cErr.message, details: cErr.details, hint: cErr.hint });
+        throw cErr;
+      }
+      console.log("[onboarding] companies criada →", company);
       setImportProgress(40);
 
-      // 2. Profile as owner
-      const { error: pErr } = await supabase.from("profiles").insert({
+      // 2. Profile (UPSERT — perfil pode já existir)
+      const profilePayload = {
         user_id: u.user.id,
         company_id: company.id,
         name: (u.user.user_metadata?.name as string) ?? u.user.email,
         email: u.user.email,
-        role: "owner",
-      });
-      if (pErr) throw pErr;
+        role: "owner" as const,
+      };
+      console.log("[onboarding] UPSERT profiles payload:", profilePayload);
+      const { error: pErr } = await supabase.from("profiles").upsert(profilePayload, { onConflict: "user_id" });
+      if (pErr) {
+        console.error("[onboarding] profiles UPSERT erro:", { code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint });
+        throw pErr;
+      }
+      console.log("[onboarding] profile vinculado");
       setImportProgress(70);
 
       // 3. First unit
-      const { error: uErr } = await supabase.from("units").insert({
-        company_id: company.id,
-        name: unitName,
-        city,
-      });
-      if (uErr) throw uErr;
+      const unitPayload = { company_id: company.id, name: unitName, city };
+      console.log("[onboarding] INSERT units payload:", unitPayload);
+      const { error: uErr } = await supabase.from("units").insert(unitPayload);
+      if (uErr) {
+        console.error("[onboarding] units INSERT erro:", { code: uErr.code, message: uErr.message, details: uErr.details, hint: uErr.hint });
+        throw uErr;
+      }
+      console.log("[onboarding] unit criada");
       setImportProgress(100);
 
       setTimeout(() => setStep("done"), 600);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao configurar conta");
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string; details?: string; hint?: string };
+      console.error("[onboarding] ERRO FINAL:", { code: e.code, message: e.message, details: e.details, hint: e.hint, raw: err });
+      toast.error(`${e.message || "Erro ao configurar conta"}${e.details ? ` — ${e.details}` : ""}`);
       setStep("units");
     }
   };
