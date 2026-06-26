@@ -20,11 +20,17 @@ export function useProfile() {
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
+
+    const load = async (reason: string) => {
+      const { data: userData, error: uErr } = await supabase.auth.getUser();
+      if (uErr) console.error("[useProfile] getUser error:", uErr);
+      const user = userData?.user ?? null;
+      console.log(`[useProfile/${reason}] auth.user.id=`, user?.id, "auth.user.email=", user?.email);
+
+      if (!active) return;
       if (!user) {
-        if (active) setLoading(false);
+        setProfile(null);
+        setLoading(false);
         return;
       }
 
@@ -33,9 +39,7 @@ export function useProfile() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-
       if (!active) return;
-
       if (error) {
         console.error("[useProfile] select error:", error);
         setError(error.message);
@@ -44,13 +48,16 @@ export function useProfile() {
       }
 
       if (data) {
+        console.log("[useProfile] profile.user_id=", data.user_id, "profile.email=", data.email);
+        if (data.user_id !== user.id) {
+          console.error("[useProfile] MISMATCH auth.uid vs profile.user_id — possível cache de sessão antiga");
+        }
         setProfile(data as Profile);
         setLoading(false);
         return;
       }
 
-      // Profile não existe → cria automaticamente
-      console.warn("[useProfile] profile ausente, criando automaticamente");
+      console.warn("[useProfile] profile ausente, criando automaticamente para", user.id);
       const insertPayload = {
         user_id: user.id,
         name: (user.user_metadata?.name as string) ?? user.email,
@@ -66,15 +73,36 @@ export function useProfile() {
       if (insErr) {
         console.error("[useProfile] insert error:", insErr);
         setError(insErr.message);
-      } else {
+      } else if (created) {
+        console.log("[useProfile] profile criado", created.user_id, created.email);
         setProfile(created as Profile);
       }
       setLoading(false);
-    })();
+    };
+
+    load("mount");
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[useProfile] onAuthStateChange:", event, "user=", session?.user?.id);
+      if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        setLoading(true);
+        setProfile(null);
+        load(event);
+      }
+    });
+
     return () => {
       active = false;
+      sub.subscription.unsubscribe();
     };
   }, []);
+
 
   return { profile, loading, error };
 }

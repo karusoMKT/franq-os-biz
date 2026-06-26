@@ -33,10 +33,11 @@ function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      console.log("[auth/login] auth.user.id=", data.user?.id, "auth.user.email=", data.user?.email);
       toast.success("Login realizado com sucesso!");
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
       const msg = /invalid login credentials|invalid_credentials/i.test(raw)

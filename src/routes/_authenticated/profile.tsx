@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useProfile } from "@/hooks/use-profile";
-import { supabase } from "@/integrations/supabase/client";
+import { fullSignOut } from "@/lib/auth-utils";
 import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ function ProfilePage() {
   if (loading || !profile) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await fullSignOut();
     navigate({ to: "/auth", replace: true });
   };
 
