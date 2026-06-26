@@ -65,21 +65,58 @@ function OnboardingPage() {
       console.log("[onboarding] auth.getUser →", u.user?.id, u.user?.email);
       if (!u.user) throw new Error("Sessão expirada");
 
-      // 0. profile atual
-      const { data: existingProfile, error: epErr } = await supabase
-        .from("profiles").select("id,user_id,company_id,role").eq("user_id", u.user.id).maybeSingle();
-      console.log("[onboarding] profile atual →", existingProfile, "err:", epErr);
+      // === DIAGNÓSTICO ===
+      // 1-2. auth.user
+      console.log("[diag/1] auth.user.id =", u.user.id);
+      console.log("[diag/2] auth.user.email =", u.user.email);
+      const { data: sess } = await supabase.auth.getSession();
+      console.log("[diag/session] token.sub =", sess.session?.user?.id, "expires_at =", sess.session?.expires_at);
 
-      // 1. Company
+      // 3. SELECT * FROM profiles WHERE user_id = auth.uid()
+      const { data: profileRow, error: profileErr } = await supabase
+        .from("profiles").select("*").eq("user_id", u.user.id).maybeSingle();
+      console.log("[diag/3] profiles WHERE user_id=auth.uid() →", profileRow);
+      console.log("[diag/3] erro →", profileErr);
+
+      // 3b. Todos os profiles desse user_id (detectar duplicatas)
+      const { data: allProfiles } = await supabase
+        .from("profiles").select("id,user_id,email,company_id,role").eq("user_id", u.user.id);
+      console.log("[diag/3b] todos profiles desse user_id →", allProfiles);
+
+      // 4. current_company_id() e current_role()
+      const { data: ccid, error: ccidErr } = await supabase.rpc("current_company_id");
+      console.log("[diag/4] current_company_id() →", ccid, "erro:", ccidErr);
+      const { data: crole, error: croleErr } = await supabase.rpc("current_role");
+      console.log("[diag/4b] current_role() →", crole, "erro:", croleErr);
+
+      // 7. Confronto auth.uid vs profile.user_id
+      if (profileRow && profileRow.user_id !== u.user.id) {
+        console.error("[diag/7] MISMATCH auth.uid != profile.user_id — sessão antiga em cache");
+      } else {
+        console.log("[diag/7] auth.uid consistente com profile (ou profile inexistente)");
+      }
+      if (profileRow?.company_id) {
+        console.warn("[diag/7] profile JÁ possui company_id =", profileRow.company_id,
+          "→ policy company_insert_self bloqueia (WITH CHECK exige current_company_id() IS NULL)");
+      }
+
+      // 5. Payload companies.insert
       const companyPayload = { name: unitName || `${segment} de ${u.user.email}`, segment };
-      console.log("[onboarding] INSERT companies payload:", companyPayload);
+      console.log("[diag/5] companies.insert payload →", companyPayload);
+
+      // 6. Erro completo
       const { data: company, error: cErr } = await supabase
         .from("companies").insert(companyPayload).select().single();
       if (cErr) {
-        console.error("[onboarding] companies INSERT erro:", { code: cErr.code, message: cErr.message, details: cErr.details, hint: cErr.hint });
+        console.error("[diag/6] companies.insert ERRO completo:", {
+          code: cErr.code,
+          message: cErr.message,
+          details: cErr.details,
+          hint: cErr.hint,
+        });
         throw cErr;
       }
-      console.log("[onboarding] companies criada →", company);
+      console.log("[diag/6] companies criada →", company);
       setImportProgress(40);
 
       // 2. Profile (UPDATE — perfil já existe via signup)
