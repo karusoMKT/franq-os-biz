@@ -116,6 +116,29 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Carregamento dinâmico para não puxar localStorage em SSR
+    let unsub: (() => void) | undefined;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+        console.log("[root/onAuthStateChange]", event, "user=", session?.user?.id, session?.user?.email);
+        if (event === "SIGNED_OUT") {
+          queryClient.cancelQueries();
+          queryClient.clear();
+        } else {
+          queryClient.invalidateQueries();
+        }
+        router.invalidate();
+      });
+      unsub = () => data.subscription.unsubscribe();
+    });
+    return () => {
+      unsub?.();
+    };
+  }, [queryClient, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
