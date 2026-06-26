@@ -22,18 +22,53 @@ export function useProfile() {
     let active = true;
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
+      const user = userData.user;
+      if (!user) {
         if (active) setLoading(false);
         return;
       }
+
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", userData.user.id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error("[useProfile] select error:", error);
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+        setProfile(data as Profile);
+        setLoading(false);
+        return;
+      }
+
+      // Profile não existe → cria automaticamente
+      console.warn("[useProfile] profile ausente, criando automaticamente");
+      const insertPayload = {
+        user_id: user.id,
+        name: (user.user_metadata?.name as string) ?? user.email,
+        email: user.email,
+        role: "owner" as const,
+      };
+      const { data: created, error: insErr } = await supabase
+        .from("profiles")
+        .insert(insertPayload)
+        .select()
         .maybeSingle();
       if (!active) return;
-      if (error) setError(error.message);
-      setProfile(data as Profile | null);
+      if (insErr) {
+        console.error("[useProfile] insert error:", insErr);
+        setError(insErr.message);
+      } else {
+        setProfile(created as Profile);
+      }
       setLoading(false);
     })();
     return () => {

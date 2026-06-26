@@ -15,11 +15,15 @@ function DashboardRedirect() {
   const { profile, loading, error } = useProfile();
 
   useEffect(() => {
-    if (!profile) return;
+    if (loading || !profile) return;
+    if (!profile.company_id) {
+      navigate({ to: "/onboarding", replace: true });
+      return;
+    }
     if (profile.role === "owner") navigate({ to: "/dashboard/owner", replace: true });
     else if (profile.role === "manager") navigate({ to: "/dashboard/manager", replace: true });
     else if (profile.role === "employee") navigate({ to: "/dashboard/employee", replace: true });
-  }, [profile, navigate]);
+  }, [profile, loading, navigate]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
