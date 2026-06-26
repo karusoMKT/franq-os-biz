@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useProfile } from "@/hooks/use-profile";
-import { supabase } from "@/integrations/supabase/client";
+import { fullSignOut } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -26,7 +26,7 @@ function DashboardRedirect() {
   }, [profile, loading, navigate]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await fullSignOut();
     navigate({ to: "/auth", replace: true });
   };
 
