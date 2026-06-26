@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { fullSignOut } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export function DashboardShell({
 }) {
   const navigate = useNavigate();
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await fullSignOut();
     navigate({ to: "/auth", replace: true });
   };
 
