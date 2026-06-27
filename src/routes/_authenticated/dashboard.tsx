@@ -34,6 +34,23 @@ function DashboardRedirect() {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Erro ao carregar perfil</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-2">
+            <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+            <Button onClick={handleSignOut} variant="outline">Sair</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -41,7 +58,7 @@ function DashboardRedirect() {
           <CardHeader>
             <CardTitle>Perfil não encontrado</CardTitle>
             <CardDescription>
-              {error ?? "Seu usuário ainda não está vinculado a um perfil. Contate o administrador."}
+              Seu usuário ainda não está vinculado a um perfil. Contate o administrador.
             </CardDescription>
           </CardHeader>
           <CardContent>
