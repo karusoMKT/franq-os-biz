@@ -20,6 +20,8 @@ export function useProfile() {
 
   useEffect(() => {
     let active = true;
+    let lastUserId: string | null | undefined;
+
 
     const load = async (reason: string) => {
       const { data: userData, error: uErr } = await supabase.auth.getUser();
@@ -28,6 +30,7 @@ export function useProfile() {
       console.log(`[useProfile/${reason}] auth.user.id=`, user?.id, "auth.user.email=", user?.email);
 
       if (!active) return;
+      lastUserId = user?.id ?? null;
       if (!user) {
         setProfile(null);
         setLoading(false);
@@ -83,18 +86,21 @@ export function useProfile() {
     load("mount");
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[useProfile] onAuthStateChange:", event, "user=", session?.user?.id);
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      const userId = session?.user?.id ?? null;
+      console.log("[useProfile] onAuthStateChange:", event, "user=", userId);
       if (event === "SIGNED_OUT") {
+        lastUserId = null;
         setProfile(null);
         setError(null);
         setLoading(false);
         return;
       }
-      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        setLoading(true);
-        setProfile(null);
-        load(event);
-      }
+      // Ignora SIGNED_IN repetido para o mesmo usuário (token refresh, foco de aba)
+      if (lastUserId === userId) return;
+      lastUserId = userId;
+      setLoading(true);
+      load(event);
     });
 
     return () => {

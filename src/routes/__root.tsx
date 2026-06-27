@@ -121,10 +121,15 @@ function RootComponent() {
   useEffect(() => {
     // Carregamento dinâmico para não puxar localStorage em SSR
     let unsub: (() => void) | undefined;
+    let lastUserId: string | null | undefined; // undefined = ainda não inicializado
     import("@/integrations/supabase/client").then(({ supabase }) => {
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
         if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-        console.log("[root/onAuthStateChange]", event, "user=", session?.user?.id, session?.user?.email);
+        const userId = session?.user?.id ?? null;
+        // Ignora SIGNED_IN repetidos para o mesmo usuário (token refresh, foco de aba)
+        if (event === "SIGNED_IN" && lastUserId === userId) return;
+        lastUserId = userId;
+        console.log("[root/onAuthStateChange]", event, "user=", userId, session?.user?.email);
         if (event === "SIGNED_OUT") {
           queryClient.cancelQueries();
           queryClient.clear();
