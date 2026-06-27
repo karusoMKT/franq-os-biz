@@ -59,111 +59,38 @@ function OnboardingPage() {
 
   const runImport = async () => {
     setStep("importing");
-    setImportProgress(10);
+    setImportProgress(20);
     try {
       const { data: u } = await supabase.auth.getUser();
-      console.log("[onboarding] auth.getUser →", u.user?.id, u.user?.email);
       if (!u.user) throw new Error("Sessão expirada");
 
-      // === DIAGNÓSTICO ===
-      // 1-2. auth.user
-      console.log("[diag/1] auth.user.id =", u.user.id);
-      console.log("[diag/2] auth.user.email =", u.user.email);
-      const { data: sess } = await supabase.auth.getSession();
-      console.log("[diag/session] token.sub =", sess.session?.user?.id, "expires_at =", sess.session?.expires_at);
-
-      // 3. SELECT * FROM profiles WHERE user_id = auth.uid()
-      const { data: profileRow, error: profileErr } = await supabase
-        .from("profiles").select("*").eq("user_id", u.user.id).maybeSingle();
-      console.log("[diag/3] profiles WHERE user_id=auth.uid() →", profileRow);
-      console.log("[diag/3] erro →", profileErr);
-
-      // 3b. Todos os profiles desse user_id (detectar duplicatas)
-      const { data: allProfiles } = await supabase
-        .from("profiles").select("id,user_id,email,company_id,role").eq("user_id", u.user.id);
-      console.log("[diag/3b] todos profiles desse user_id →", allProfiles);
-
-      // 4. current_company_id() e current_role()
-      const { data: ccid, error: ccidErr } = await supabase.rpc("current_company_id");
-      console.log("[diag/4] current_company_id() →", ccid, "erro:", ccidErr);
-      const { data: crole, error: croleErr } = await supabase.rpc("current_role");
-      console.log("[diag/4b] current_role() →", crole, "erro:", croleErr);
-
-      // 7. Confronto auth.uid vs profile.user_id
-      if (profileRow && profileRow.user_id !== u.user.id) {
-        console.error("[diag/7] MISMATCH auth.uid != profile.user_id — sessão antiga em cache");
-      } else {
-        console.log("[diag/7] auth.uid consistente com profile (ou profile inexistente)");
-      }
-      if (profileRow?.company_id) {
-        console.warn("[diag/7] profile JÁ possui company_id =", profileRow.company_id,
-          "→ policy company_insert_self bloqueia (WITH CHECK exige current_company_id() IS NULL)");
-      }
-
-      // 5. Payload companies.insert
-      const companyPayload = { name: unitName || `${segment} de ${u.user.email}`, segment };
-      console.log("[diag/5] companies.insert payload →", companyPayload);
-
-      // 6. Erro completo
-      const { data: company, error: cErr } = await supabase
-        .from("companies").insert(companyPayload).select().single();
-      if (cErr) {
-        console.error("[diag/6] companies.insert ERRO completo:", {
-          code: cErr.code,
-          message: cErr.message,
-          details: cErr.details,
-          hint: cErr.hint,
-        });
-        throw cErr;
-      }
-      console.log("[diag/6] companies criada →", company);
-      setImportProgress(40);
-
-      // 2. Profile (UPDATE — perfil já existe via signup)
-      const profilePatch = {
-        company_id: company.id,
-        name: (u.user.user_metadata?.name as string) ?? u.user.email,
-        email: u.user.email,
-        role: "owner" as const,
+      const payload = {
+        p_company_name: unitName || `${segment} de ${u.user.email}`,
+        p_segment: segment,
+        p_unit_name: unitName,
+        p_city: city,
+        p_state: "",
       };
-      console.log("[onboarding] UPDATE profiles patch:", profilePatch);
-      const { data: updatedProfile, error: pErr } = await supabase
-        .from("profiles")
-        .update(profilePatch)
-        .eq("user_id", u.user.id)
-        .select()
-        .maybeSingle();
-      if (pErr) {
-        console.error("[onboarding] profiles UPDATE erro:", { code: pErr.code, message: pErr.message, details: pErr.details, hint: pErr.hint });
-        throw pErr;
-      }
-      if (!updatedProfile) {
-        // fallback: profile não existia ainda → cria
-        console.warn("[onboarding] profile não encontrado, fazendo INSERT");
-        const { error: iErr } = await supabase.from("profiles").insert({ user_id: u.user.id, ...profilePatch });
-        if (iErr) {
-          console.error("[onboarding] profiles INSERT fallback erro:", { code: iErr.code, message: iErr.message, details: iErr.details, hint: iErr.hint });
-          throw iErr;
-        }
-      }
-      console.log("[onboarding] profile vinculado à company");
-      setImportProgress(70);
+      console.log("[onboarding] rpc handle_onboarding payload →", payload);
+      setImportProgress(50);
 
-      // 3. First unit
-      const unitPayload = { company_id: company.id, name: unitName, city };
-      console.log("[onboarding] INSERT units payload:", unitPayload);
-      const { error: uErr } = await supabase.from("units").insert(unitPayload);
-      if (uErr) {
-        console.error("[onboarding] units INSERT erro:", { code: uErr.code, message: uErr.message, details: uErr.details, hint: uErr.hint });
-        throw uErr;
+      const { data, error } = await supabase.rpc("handle_onboarding", payload);
+      if (error) {
+        console.error("[onboarding] handle_onboarding erro:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        throw error;
       }
-      console.log("[onboarding] unit criada");
+      console.log("[onboarding] handle_onboarding ok →", data);
       setImportProgress(100);
 
       setTimeout(() => setStep("done"), 600);
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
-      console.error("[onboarding] ERRO FINAL:", { code: e.code, message: e.message, details: e.details, hint: e.hint, raw: err });
+      console.error("[onboarding] ERRO FINAL:", e);
       toast.error(`${e.message || "Erro ao configurar conta"}${e.details ? ` — ${e.details}` : ""}`);
       setStep("units");
     }
