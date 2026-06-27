@@ -20,6 +20,8 @@ export function useProfile() {
 
   useEffect(() => {
     let active = true;
+    let lastUserId: string | null | undefined;
+
 
     const load = async (reason: string) => {
       const { data: userData, error: uErr } = await supabase.auth.getUser();
