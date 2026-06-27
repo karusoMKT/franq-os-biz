@@ -87,7 +87,12 @@ function OnboardingPage() {
       console.log("[onboarding] handle_onboarding ok →", data);
       setImportProgress(100);
 
-      setTimeout(() => setStep("done"), 600);
+      // Força refetch completo do profile (que agora possui company_id)
+      // antes de entrar no dashboard, evitando loop /dashboard ↔ /onboarding
+      // causado por cache em memória do useProfile.
+      setTimeout(() => {
+        window.location.assign("/dashboard");
+      }, 600);
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
       console.error("[onboarding] ERRO FINAL:", e);

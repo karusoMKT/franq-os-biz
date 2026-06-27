@@ -853,6 +853,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           name: string
+          score: number | null
           state: string | null
           status: Database["public"]["Enums"]["unit_status"]
         }
@@ -865,6 +866,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name: string
+          score?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["unit_status"]
         }
@@ -877,6 +879,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name?: string
+          score?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["unit_status"]
         }
