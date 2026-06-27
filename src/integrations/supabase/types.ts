@@ -921,6 +921,16 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       current_unit_id: { Args: never; Returns: string }
+      handle_onboarding: {
+        Args: {
+          p_city: string
+          p_company_name: string
+          p_segment: string
+          p_state: string
+          p_unit_name: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
