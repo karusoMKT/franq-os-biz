@@ -84,7 +84,6 @@ export function useProfile() {
 
     load("mount");
 
-    let lastUserId: string | null | undefined;
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const userId = session?.user?.id ?? null;
