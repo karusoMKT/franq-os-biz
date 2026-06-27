@@ -30,6 +30,7 @@ export function useProfile() {
       console.log(`[useProfile/${reason}] auth.user.id=`, user?.id, "auth.user.email=", user?.email);
 
       if (!active) return;
+      lastUserId = user?.id ?? null;
       if (!user) {
         setProfile(null);
         setLoading(false);
