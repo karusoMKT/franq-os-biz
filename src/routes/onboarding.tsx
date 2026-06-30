@@ -1,8 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Sandwich, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Loading } from "@/components/loading";
+import { PROFILE_QUERY_KEY, profileQueryOptions, useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -21,12 +24,16 @@ const SEGMENTS = [
   { id: "Outro segmento", label: "Outro segmento", icon: MoreHorizontal, color: "text-slate-500" },
 ];
 
-const UNIT_COUNTS = ["1 unidade", "2 a 3 unidades", "4 a 5 unidades", "Mais de 5 unidades"];
+const UNIT_COUNTS = Array.from({ length: 10 }, (_, index) => {
+  const count = index + 1;
+  return count === 1 ? "1 unidade" : `${count} unidades`;
+});
 
 function OnboardingPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { profile, loading: profileLoading } = useProfile();
   const [step, setStep] = useState<Step>("segment");
-  const [checking, setChecking] = useState(true);
 
   // form state
   const [segment, setSegment] = useState<string>("Sorveteria");
@@ -38,24 +45,15 @@ function OnboardingPage() {
   const [importProgress, setImportProgress] = useState(0);
 
   useEffect(() => {
-    (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) {
-        navigate({ to: "/auth" });
-        return;
-      }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id, company_id")
-        .eq("user_id", u.user.id)
-        .maybeSingle();
-      if (profile?.company_id) {
-        navigate({ to: "/dashboard" });
-        return;
-      }
-      setChecking(false);
-    })();
-  }, [navigate]);
+    if (profileLoading) return;
+    if (!profile) {
+      navigate({ to: "/auth", replace: true });
+      return;
+    }
+    if (profile.company_id) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [profile, profileLoading, navigate]);
 
   const runImport = async () => {
     setStep("importing");
@@ -95,12 +93,16 @@ function OnboardingPage() {
       console.log("[onboarding] handle_onboarding ok →", data);
       setImportProgress(100);
 
-      // Força refetch completo do profile (que agora possui company_id)
-      // antes de entrar no dashboard, evitando loop /dashboard ↔ /onboarding
-      // causado por cache em memória do useProfile.
-      setTimeout(() => {
-        window.location.assign("/dashboard");
-      }, 600);
+      await queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY, refetchType: "active" });
+      const freshProfile = await queryClient.fetchQuery(profileQueryOptions());
+
+      if (!freshProfile?.company_id) {
+        toast.error("Conta criada, mas o perfil ainda não foi vinculado à empresa. Tente novamente.");
+        setStep("units");
+        return;
+      }
+
+      navigate({ to: "/dashboard", replace: true });
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string; details?: string; hint?: string };
       console.error("[onboarding] ERRO FINAL:", e);
@@ -109,13 +111,7 @@ function OnboardingPage() {
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
-        Carregando...
-      </div>
-    );
-  }
+  if (profileLoading || !profile) return <Loading />;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
