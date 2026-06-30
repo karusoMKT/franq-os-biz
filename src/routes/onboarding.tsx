@@ -64,7 +64,13 @@ function OnboardingPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sessão expirada");
 
-      const payload = {
+      const payload: {
+        p_company_name: string;
+        p_segment: string;
+        p_unit_name: string;
+        p_city: string;
+        p_state: string;
+      } = {
         p_company_name: unitName || `${segment} de ${u.user.email}`,
         p_segment: segment,
         p_unit_name: unitName,
@@ -82,7 +88,9 @@ function OnboardingPage() {
           details: error.details,
           hint: error.hint,
         });
-        throw error;
+        toast.error(`${error.message || "Erro ao configurar conta"}${error.details ? ` — ${error.details}` : ""}`);
+        setStep("units");
+        return;
       }
       console.log("[onboarding] handle_onboarding ok →", data);
       setImportProgress(100);
