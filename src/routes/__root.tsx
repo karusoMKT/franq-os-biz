@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { PROFILE_QUERY_KEY } from "@/hooks/use-profile";
 
 function NotFoundComponent() {
   return (
@@ -134,7 +135,7 @@ function RootComponent() {
           queryClient.cancelQueries();
           queryClient.clear();
         } else {
-          queryClient.invalidateQueries();
+          queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
         }
         router.invalidate();
       });

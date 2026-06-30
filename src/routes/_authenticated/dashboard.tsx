@@ -4,6 +4,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { fullSignOut } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Loading } from "@/components/loading";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard - FranqOS" }] }),
@@ -31,7 +32,7 @@ function DashboardRedirect() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return <Loading />;
   }
 
   if (error) {

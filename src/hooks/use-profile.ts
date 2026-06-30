@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "owner" | "manager" | "employee";
@@ -13,102 +13,78 @@ export interface Profile {
   role: AppRole;
 }
 
+export const PROFILE_QUERY_KEY = ["profile"] as const;
+
+async function fetchProfile(): Promise<Profile | null> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) {
+    console.error("[useProfile] getUser error:", userError);
+  }
+
+  const user = userData?.user ?? null;
+  console.log("[useProfile/query] auth.user.id=", user?.id, "auth.user.email=", user?.email);
+
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[useProfile] select error:", error);
+    throw error;
+  }
+
+  if (data) {
+    console.log("[useProfile] profile.user_id=", data.user_id, "profile.email=", data.email);
+    if (data.user_id !== user.id) {
+      console.error("[useProfile] MISMATCH auth.uid vs profile.user_id — possível cache de sessão antiga");
+    }
+    return data as Profile;
+  }
+
+  console.warn("[useProfile] profile ausente, criando automaticamente para", user.id);
+  const insertPayload = {
+    user_id: user.id,
+    name: (user.user_metadata?.name as string) ?? user.email,
+    email: user.email,
+    role: "owner" as const,
+  };
+  const { data: created, error: insertError } = await supabase
+    .from("profiles")
+    .insert(insertPayload)
+    .select()
+    .maybeSingle();
+
+  if (insertError) {
+    console.error("[useProfile] insert error:", insertError);
+    throw insertError;
+  }
+
+  if (created) {
+    console.log("[useProfile] profile criado", created.user_id, created.email);
+    return created as Profile;
+  }
+
+  return null;
+}
+
+export const profileQueryOptions = () =>
+  queryOptions({
+    queryKey: PROFILE_QUERY_KEY,
+    queryFn: fetchProfile,
+    retry: false,
+    staleTime: 0,
+  });
+
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const query = useQuery(profileQueryOptions());
 
-  useEffect(() => {
-    let active = true;
-    let lastUserId: string | null | undefined;
-
-
-    const load = async (reason: string) => {
-      const { data: userData, error: uErr } = await supabase.auth.getUser();
-      if (uErr) console.error("[useProfile] getUser error:", uErr);
-      const user = userData?.user ?? null;
-      console.log(`[useProfile/${reason}] auth.user.id=`, user?.id, "auth.user.email=", user?.email);
-
-      if (!active) return;
-      lastUserId = user?.id ?? null;
-      if (!user) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!active) return;
-      if (error) {
-        console.error("[useProfile] select error:", error);
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data) {
-        console.log("[useProfile] profile.user_id=", data.user_id, "profile.email=", data.email);
-        if (data.user_id !== user.id) {
-          console.error("[useProfile] MISMATCH auth.uid vs profile.user_id — possível cache de sessão antiga");
-        }
-        setProfile(data as Profile);
-        setLoading(false);
-        return;
-      }
-
-      console.warn("[useProfile] profile ausente, criando automaticamente para", user.id);
-      const insertPayload = {
-        user_id: user.id,
-        name: (user.user_metadata?.name as string) ?? user.email,
-        email: user.email,
-        role: "owner" as const,
-      };
-      const { data: created, error: insErr } = await supabase
-        .from("profiles")
-        .insert(insertPayload)
-        .select()
-        .maybeSingle();
-      if (!active) return;
-      if (insErr) {
-        console.error("[useProfile] insert error:", insErr);
-        setError(insErr.message);
-      } else if (created) {
-        console.log("[useProfile] profile criado", created.user_id, created.email);
-        setProfile(created as Profile);
-      }
-      setLoading(false);
-    };
-
-    load("mount");
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      const userId = session?.user?.id ?? null;
-      console.log("[useProfile] onAuthStateChange:", event, "user=", userId);
-      if (event === "SIGNED_OUT") {
-        lastUserId = null;
-        setProfile(null);
-        setError(null);
-        setLoading(false);
-        return;
-      }
-      // Ignora SIGNED_IN repetido para o mesmo usuário (token refresh, foco de aba)
-      if (lastUserId === userId) return;
-      lastUserId = userId;
-      setLoading(true);
-      load(event);
-    });
-
-    return () => {
-      active = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-
-  return { profile, loading, error };
+  return {
+    profile: query.data ?? null,
+    loading: query.isPending || query.isFetching,
+    error: query.error instanceof Error ? query.error.message : null,
+  };
 }

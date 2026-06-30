@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loading } from "@/components/loading";
 import { Target, ClipboardCheck, Users, ListTodo } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard/manager")({
@@ -18,7 +19,9 @@ function ManagerDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && profile && profile.role !== "manager") navigate({ to: "/dashboard", replace: true });
+    if (loading || !profile) return;
+    if (!profile.company_id) navigate({ to: "/onboarding", replace: true });
+    else if (profile.role !== "manager") navigate({ to: "/dashboard", replace: true });
   }, [profile, loading, navigate]);
 
   const unitId = profile?.unit_id ?? null;
@@ -47,7 +50,7 @@ function ManagerDashboard() {
     },
   });
 
-  if (loading || !profile) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  if (loading || !profile) return <Loading />;
   if (profile.role !== "manager") return null;
 
   if (!unitId) {
