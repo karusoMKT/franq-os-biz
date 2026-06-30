@@ -5,7 +5,7 @@ import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, Utensils
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loading } from "@/components/loading";
-import { profileQueryOptions, useProfile } from "@/hooks/use-profile";
+import { PROFILE_QUERY_KEY, profileQueryOptions, useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -93,7 +93,7 @@ function OnboardingPage() {
       console.log("[onboarding] handle_onboarding ok →", data);
       setImportProgress(100);
 
-      await queryClient.invalidateQueries({ queryKey: ["profile"], refetchType: "active" });
+      await queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY, refetchType: "active" });
       const freshProfile = await queryClient.fetchQuery(profileQueryOptions());
 
       if (!freshProfile?.company_id) {
