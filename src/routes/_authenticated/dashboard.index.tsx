@@ -5,9 +5,10 @@ import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { fullSignOut } from "@/lib/auth-utils";
 import { Loading } from "@/components/loading";
+import { MobileShell } from "@/components/mobile-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, LayoutDashboard, Users, Briefcase } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
   head: () => ({ meta: [{ title: "Dashboard FranqOS" }] }),
@@ -41,7 +42,11 @@ function DashboardHome() {
     if (loading || !profile) return;
     if (!profile.company_id) {
       navigate({ to: "/onboarding", replace: true });
+      return;
     }
+    if (profile.role === "owner") navigate({ to: "/dashboard/owner", replace: true });
+    else if (profile.role === "manager") navigate({ to: "/dashboard/manager", replace: true });
+    else if (profile.role === "employee") navigate({ to: "/dashboard/employee", replace: true });
   }, [profile, loading, navigate]);
 
   const { data: company } = useQuery({
@@ -105,33 +110,81 @@ function DashboardHome() {
 
   const firstName = profile.name?.split(" ")[0] ?? "usuário";
   const companyName = company?.name ?? "sua empresa";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
 
   return (
-    <div className="min-h-screen p-6 max-w-2xl mx-auto space-y-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard FranqOS</h1>
-        <Button onClick={handleSignOut} variant="outline" size="sm" disabled={signingOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sair
-        </Button>
-      </header>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Bem-vindo, {firstName}!</CardTitle>
-          <CardDescription>
-            Você está conectado a <strong>{companyName}</strong>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>Perfil: <strong>{profile.role}</strong></p>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button size="sm" onClick={() => navigate({ to: "/dashboard/owner" })}>Visão proprietário</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/dashboard/manager" })}>Visão gerente</Button>
-            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/dashboard/employee" })}>Visão operacional</Button>
-          </div>
-        </CardContent>
+    <MobileShell
+      profile={profile}
+      title={`${greeting}, ${firstName}! 👋`}
+      subtitle={companyName}
+    >
+      <Card className="p-4 bg-gradient-to-br from-[color:var(--franqos-blue)] to-blue-600 text-white border-0">
+        <div className="text-xs uppercase tracking-wide opacity-80">Empresa</div>
+        <div className="text-lg font-bold">{companyName}</div>
+        <div className="text-xs mt-1 opacity-90">
+          Perfil: <strong className="capitalize">{profile.role}</strong>
+        </div>
       </Card>
-    </div>
+
+      <section>
+        <h3 className="text-sm font-semibold mb-2">Acesso rápido</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <QuickAction
+            icon={<LayoutDashboard size={20} />}
+            label="Proprietário"
+            onClick={() => navigate({ to: "/dashboard/owner" })}
+          />
+          <QuickAction
+            icon={<Briefcase size={20} />}
+            label="Gerente"
+            onClick={() => navigate({ to: "/dashboard/manager" })}
+          />
+          <QuickAction
+            icon={<Users size={20} />}
+            label="Operacional"
+            onClick={() => navigate({ to: "/dashboard/employee" })}
+          />
+        </div>
+      </section>
+
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-semibold">Sessão</div>
+            <div className="text-xs text-muted-foreground">{profile.email}</div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
+      </Card>
+    </MobileShell>
+  );
+}
+
+function QuickAction({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-xl border bg-white p-3 flex flex-col items-center gap-1 hover:bg-accent transition text-center"
+    >
+      <div className="text-[color:var(--franqos-blue)]">{icon}</div>
+      <div className="text-[11px] font-medium">{label}</div>
+    </button>
   );
 }
