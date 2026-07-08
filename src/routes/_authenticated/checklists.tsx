@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, GripVertical, Search, Square, CheckSquare } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -36,12 +36,34 @@ export const Route = createFileRoute("/_authenticated/checklists")({
   component: ChecklistsPage,
 });
 
+type ChecklistItem = { id: string; text: string };
+
 type Checklist = {
   id: string;
   title: string;
   category: string | null;
   is_critical: boolean;
+  items: ChecklistItem[] | null;
 };
+
+const uid = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+function normalizeItems(raw: unknown): ChecklistItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((it) => {
+      if (typeof it === "string") return { id: uid(), text: it };
+      if (it && typeof it === "object") {
+        const text = (it as any).text ?? (it as any).label ?? "";
+        return { id: (it as any).id ?? uid(), text: String(text) };
+      }
+      return null;
+    })
+    .filter((x): x is ChecklistItem => !!x && x.text.trim() !== "");
+}
 
 function ChecklistsPage() {
   const { profile, loading } = useProfile();
@@ -49,7 +71,13 @@ function ChecklistsPage() {
   const [editing, setEditing] = useState<Checklist | null>(null);
   const [open, setOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: "", category: "", is_critical: false });
+  const [search, setSearch] = useState("");
+  const [form, setForm] = useState<{
+    title: string;
+    category: string;
+    is_critical: boolean;
+    items: ChecklistItem[];
+  }>({ title: "", category: "", is_critical: false, items: [] });
 
   const queryKey = ["checklists", profile?.company_id];
 
@@ -62,13 +90,26 @@ function ChecklistsPage() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Checklist[];
+      return (data ?? []).map((c: any) => ({
+        ...c,
+        items: normalizeItems(c.items),
+      })) as Checklist[];
     },
   });
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter((c) => c.title.toLowerCase().includes(q));
+  }, [data, search]);
 
   const upsertMutation = useMutation({
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Título é obrigatório");
+      const cleanItems = form.items
+        .map((i) => ({ id: i.id, text: i.text.trim() }))
+        .filter((i) => i.text !== "");
       if (editing) {
         const { error } = await supabase
           .from("checklists")
@@ -76,6 +117,7 @@ function ChecklistsPage() {
             title: form.title.trim(),
             category: form.category.trim() || null,
             is_critical: form.is_critical,
+            items: cleanItems,
           })
           .eq("id", editing.id);
         if (error) throw error;
@@ -85,6 +127,7 @@ function ChecklistsPage() {
           title: form.title.trim(),
           category: form.category.trim() || null,
           is_critical: form.is_critical,
+          items: cleanItems,
           created_by: profile!.user_id,
         });
         if (error) throw error;
@@ -113,7 +156,7 @@ function ChecklistsPage() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", category: "", is_critical: false });
+    setForm({ title: "", category: "", is_critical: false, items: [{ id: uid(), text: "" }] });
     setOpen(true);
   };
 
@@ -123,9 +166,17 @@ function ChecklistsPage() {
       title: c.title,
       category: c.category ?? "",
       is_critical: c.is_critical,
+      items: c.items && c.items.length ? c.items : [{ id: uid(), text: "" }],
     });
     setOpen(true);
   };
+
+  const addItem = () =>
+    setForm((f) => ({ ...f, items: [...f.items, { id: uid(), text: "" }] }));
+  const updateItem = (id: string, text: string) =>
+    setForm((f) => ({ ...f, items: f.items.map((i) => (i.id === id ? { ...i, text } : i)) }));
+  const removeItem = (id: string) =>
+    setForm((f) => ({ ...f, items: f.items.filter((i) => i.id !== id) }));
 
   if (loading || !profile)
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
@@ -136,15 +187,25 @@ function ChecklistsPage() {
         <Plus className="mr-2 h-4 w-4" /> Novo Checklist
       </Button>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por título..."
+          className="pl-9"
+        />
+      </div>
+
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
         </div>
-      ) : data && data.length > 0 ? (
+      ) : filtered.length > 0 ? (
         <ul className="space-y-2">
-          {data.map((c) => (
+          {filtered.map((c) => (
             <li key={c.id}>
               <Card
                 className="p-3 cursor-pointer hover:bg-accent/50 transition-colors"
@@ -163,6 +224,21 @@ function ChecklistsPage() {
                     <div className="text-xs text-muted-foreground">
                       {c.category ?? "Geral"}
                     </div>
+                    {c.items && c.items.length > 0 && (
+                      <ul className="mt-2 space-y-1">
+                        {c.items.slice(0, 5).map((it) => (
+                          <li key={it.id} className="flex items-center gap-2 text-xs text-foreground/80">
+                            <Square className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="truncate">{it.text}</span>
+                          </li>
+                        ))}
+                        {c.items.length > 5 && (
+                          <li className="text-[11px] text-muted-foreground">
+                            +{c.items.length - 5} itens
+                          </li>
+                        )}
+                      </ul>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -182,12 +258,12 @@ function ChecklistsPage() {
         </ul>
       ) : (
         <Card className="p-6 text-center text-sm text-muted-foreground">
-          Nenhum checklist cadastrado.
+          {search ? "Nenhum resultado." : "Nenhum checklist cadastrado."}
         </Card>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editing ? "Editar Checklist" : "Novo Checklist"}
@@ -227,6 +303,43 @@ function ChecklistsPage() {
                 checked={form.is_critical}
                 onCheckedChange={(v) => setForm({ ...form, is_critical: v })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Itens do checklist</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                </Button>
+              </div>
+              {form.items.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum item. Adicione o primeiro passo.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {form.items.map((it, idx) => (
+                    <li key={it.id} className="flex items-center gap-2">
+                      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <CheckSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Input
+                        value={it.text}
+                        onChange={(e) => updateItem(it.id, e.target.value)}
+                        placeholder={`Item ${idx + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => removeItem(it.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <DialogFooter>
