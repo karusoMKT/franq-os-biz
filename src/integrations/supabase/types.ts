@@ -169,6 +169,27 @@ export type Database = {
           },
         ]
       }
+      checklist_templates: {
+        Row: {
+          id: string
+          items: Json
+          segment: string
+          title: string
+        }
+        Insert: {
+          id?: string
+          items: Json
+          segment: string
+          title: string
+        }
+        Update: {
+          id?: string
+          items?: Json
+          segment?: string
+          title?: string
+        }
+        Relationships: []
+      }
       checklists: {
         Row: {
           category: string | null
@@ -177,6 +198,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_critical: boolean
+          items: Json | null
           title: string
         }
         Insert: {
@@ -186,6 +208,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_critical?: boolean
+          items?: Json | null
           title: string
         }
         Update: {
@@ -195,6 +218,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_critical?: boolean
+          items?: Json | null
           title?: string
         }
         Relationships: [
@@ -546,10 +570,32 @@ export type Database = {
           },
         ]
       }
+      pop_templates: {
+        Row: {
+          content: string
+          id: string
+          segment: string
+          title: string
+        }
+        Insert: {
+          content: string
+          id?: string
+          segment: string
+          title: string
+        }
+        Update: {
+          content?: string
+          id?: string
+          segment?: string
+          title?: string
+        }
+        Relationships: []
+      }
       pops: {
         Row: {
           category: string | null
           company_id: string
+          content: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -560,6 +606,7 @@ export type Database = {
         Insert: {
           category?: string | null
           company_id: string
+          content?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -570,6 +617,7 @@ export type Database = {
         Update: {
           category?: string | null
           company_id?: string
+          content?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
