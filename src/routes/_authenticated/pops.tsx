@@ -41,6 +41,7 @@ type Pop = {
   title: string;
   category: string | null;
   description: string | null;
+  content: string | null;
   file_url: string | null;
 };
 
@@ -50,7 +51,8 @@ function PopsPage() {
   const [editing, setEditing] = useState<Pop | null>(null);
   const [open, setOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: "", category: "", description: "" });
+  const [search, setSearch] = useState("");
+  const [form, setForm] = useState({ title: "", category: "", content: "" });
 
   const queryKey = ["pops", profile?.company_id];
 
@@ -67,25 +69,28 @@ function PopsPage() {
     },
   });
 
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter((p) => p.title.toLowerCase().includes(q));
+  }, [data, search]);
+
   const upsertMutation = useMutation({
     mutationFn: async () => {
       if (!form.title.trim()) throw new Error("Título é obrigatório");
+      const payload = {
+        title: form.title.trim(),
+        category: form.category.trim() || null,
+        content: form.content.trim() || null,
+      };
       if (editing) {
-        const { error } = await supabase
-          .from("pops")
-          .update({
-            title: form.title.trim(),
-            category: form.category.trim() || null,
-            description: form.description.trim() || null,
-          })
-          .eq("id", editing.id);
+        const { error } = await supabase.from("pops").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("pops").insert({
+          ...payload,
           company_id: profile!.company_id!,
-          title: form.title.trim(),
-          category: form.category.trim() || null,
-          description: form.description.trim() || null,
           created_by: profile!.user_id,
         });
         if (error) throw error;
@@ -114,7 +119,7 @@ function PopsPage() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: "", category: "", description: "" });
+    setForm({ title: "", category: "", content: "" });
     setOpen(true);
   };
 
@@ -123,7 +128,7 @@ function PopsPage() {
     setForm({
       title: p.title,
       category: p.category ?? "",
-      description: p.description ?? "",
+      content: p.content ?? p.description ?? "",
     });
     setOpen(true);
   };
@@ -137,15 +142,25 @@ function PopsPage() {
         <Plus className="mr-2 h-4 w-4" /> Novo POP
       </Button>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por título..."
+          className="pl-9"
+        />
+      </div>
+
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
         </div>
-      ) : data && data.length > 0 ? (
+      ) : filtered.length > 0 ? (
         <ul className="space-y-2">
-          {data.map((p) => (
+          {filtered.map((p) => (
             <li key={p.id}>
               <Card
                 className="p-3 cursor-pointer hover:bg-accent/50 transition-colors"
@@ -157,9 +172,9 @@ function PopsPage() {
                     <div className="text-xs text-muted-foreground">
                       {p.category ?? "Geral"}
                     </div>
-                    {p.description && (
-                      <p className="text-xs mt-1 line-clamp-2 text-muted-foreground">
-                        {p.description}
+                    {(p.content || p.description) && (
+                      <p className="text-xs mt-1 line-clamp-2 text-muted-foreground whitespace-pre-wrap">
+                        {p.content ?? p.description}
                       </p>
                     )}
                   </div>
@@ -181,9 +196,10 @@ function PopsPage() {
         </ul>
       ) : (
         <Card className="p-6 text-center text-sm text-muted-foreground">
-          Nenhum POP cadastrado.
+          {search ? "Nenhum resultado." : "Nenhum POP cadastrado."}
         </Card>
       )}
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -213,12 +229,13 @@ function PopsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="pop-description">Descrição / Conteúdo</Label>
+              <Label htmlFor="pop-content">Conteúdo</Label>
               <Textarea
-                id="pop-description"
-                rows={6}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                id="pop-content"
+                rows={12}
+                className="min-h-[240px] font-mono text-sm"
+                value={form.content}
+                onChange={(e) => setForm({ ...form, content: e.target.value })}
                 placeholder="Passo a passo do procedimento..."
               />
             </div>
