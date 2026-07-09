@@ -20,6 +20,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_authenticated/daily-checklists'
 import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
@@ -81,6 +82,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDailyChecklistsRoute =
+  AuthenticatedDailyChecklistsRouteImport.update({
+    id: '/daily-checklists',
+    path: '/daily-checklists',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChecklistsRoute = AuthenticatedChecklistsRouteImport.update({
   id: '/checklists',
   path: '/checklists',
@@ -119,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/checklists': typeof AuthenticatedChecklistsRoute
+  '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
@@ -136,6 +144,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/checklists': typeof AuthenticatedChecklistsRoute
+  '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -154,6 +163,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_authenticated/checklists': typeof AuthenticatedChecklistsRoute
+  '/_authenticated/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pops': typeof AuthenticatedPopsRoute
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/checklists'
+    | '/daily-checklists'
     | '/dashboard'
     | '/notifications'
     | '/pops'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/checklists'
+    | '/daily-checklists'
     | '/notifications'
     | '/pops'
     | '/profile'
@@ -207,6 +219,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_authenticated/checklists'
+    | '/_authenticated/daily-checklists'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
     | '/_authenticated/pops'
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/daily-checklists': {
+      id: '/_authenticated/daily-checklists'
+      path: '/daily-checklists'
+      fullPath: '/daily-checklists'
+      preLoaderRoute: typeof AuthenticatedDailyChecklistsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/checklists': {
       id: '/_authenticated/checklists'
       path: '/checklists'
@@ -366,6 +386,7 @@ const AuthenticatedDashboardRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedChecklistsRoute: typeof AuthenticatedChecklistsRoute
+  AuthenticatedDailyChecklistsRoute: typeof AuthenticatedDailyChecklistsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPopsRoute: typeof AuthenticatedPopsRoute
@@ -374,6 +395,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChecklistsRoute: AuthenticatedChecklistsRoute,
+  AuthenticatedDailyChecklistsRoute: AuthenticatedDailyChecklistsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPopsRoute: AuthenticatedPopsRoute,
