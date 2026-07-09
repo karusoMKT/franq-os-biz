@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, ClipboardCheck, BookOpen, Bell, User } from "lucide-react";
+import { Home, ClipboardCheck, BookOpen, User, ListChecks } from "lucide-react";
 import type { AppRole } from "@/hooks/use-profile";
 
 type Item = { to: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
@@ -7,23 +7,23 @@ type Item = { to: string; label: string; icon: React.ComponentType<{ size?: numb
 const ITEMS: Record<AppRole, Item[]> = {
   owner: [
     { to: "/dashboard/owner", label: "Início", icon: Home },
-    { to: "/checklists", label: "Checklists", icon: ClipboardCheck },
+    { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
+    { to: "/checklists", label: "Modelos", icon: ClipboardCheck },
     { to: "/pops", label: "POPs", icon: BookOpen },
-    { to: "/notifications", label: "Avisos", icon: Bell },
     { to: "/profile", label: "Perfil", icon: User },
   ],
   manager: [
     { to: "/dashboard/manager", label: "Início", icon: Home },
-    { to: "/checklists", label: "Checklists", icon: ClipboardCheck },
+    { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
+    { to: "/checklists", label: "Modelos", icon: ClipboardCheck },
     { to: "/pops", label: "POPs", icon: BookOpen },
-    { to: "/notifications", label: "Avisos", icon: Bell },
     { to: "/profile", label: "Perfil", icon: User },
   ],
   employee: [
     { to: "/dashboard/employee", label: "Início", icon: Home },
-    { to: "/checklists", label: "Checklists", icon: ClipboardCheck },
+    { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
+    { to: "/checklists", label: "Modelos", icon: ClipboardCheck },
     { to: "/pops", label: "POPs", icon: BookOpen },
-    { to: "/notifications", label: "Avisos", icon: Bell },
     { to: "/profile", label: "Perfil", icon: User },
   ],
 };
