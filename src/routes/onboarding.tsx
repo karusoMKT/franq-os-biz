@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Sandwich, MoreHorizontal, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Sandwich, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loading } from "@/components/loading";
