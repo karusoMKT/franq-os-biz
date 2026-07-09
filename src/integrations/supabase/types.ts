@@ -84,32 +84,41 @@ export type Database = {
       }
       checklist_executions: {
         Row: {
+          checked_items: Json
           checklist_id: string
           completed_at: string | null
           created_at: string
+          execution_date: string
           id: string
           notes: string | null
           score: number | null
+          status: string
           unit_id: string
           user_id: string | null
         }
         Insert: {
+          checked_items?: Json
           checklist_id: string
           completed_at?: string | null
           created_at?: string
+          execution_date?: string
           id?: string
           notes?: string | null
           score?: number | null
+          status?: string
           unit_id: string
           user_id?: string | null
         }
         Update: {
+          checked_items?: Json
           checklist_id?: string
           completed_at?: string | null
           created_at?: string
+          execution_date?: string
           id?: string
           notes?: string | null
           score?: number | null
+          status?: string
           unit_id?: string
           user_id?: string | null
         }
