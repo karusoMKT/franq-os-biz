@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, CheckCircle2, FolderCheck, IceCream, Coffee, UtensilsCrossed, Sandwich, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,10 +24,34 @@ const SEGMENTS = [
   { id: "Outro segmento", label: "Outro segmento", icon: MoreHorizontal, color: "text-slate-500" },
 ];
 
-const UNIT_COUNTS = Array.from({ length: 10 }, (_, index) => {
-  const count = index + 1;
-  return count === 1 ? "1 unidade" : `${count} unidades`;
-});
+const UNIT_COUNT_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 1);
+
+interface UnitDraft {
+  name: string;
+  state: string; // sigla UF
+  city: string;
+}
+
+interface IbgeState {
+  id: number;
+  sigla: string;
+  nome: string;
+}
+interface IbgeCity {
+  id: number;
+  nome: string;
+}
+
+async function fetchStates(): Promise<IbgeState[]> {
+  const r = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome");
+  if (!r.ok) throw new Error("Falha ao carregar estados");
+  return r.json();
+}
+async function fetchCities(uf: string): Promise<IbgeCity[]> {
+  const r = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`);
+  if (!r.ok) throw new Error("Falha ao carregar cidades");
+  return r.json();
+}
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -35,13 +59,9 @@ function OnboardingPage() {
   const { profile, loading: profileLoading } = useProfile();
   const [step, setStep] = useState<Step>("segment");
 
-  // form state
   const [segment, setSegment] = useState<string>("Sorveteria");
-  const [unitName, setUnitName] = useState("");
-  const [city, setCity] = useState("");
-  const [unitCount, setUnitCount] = useState(UNIT_COUNTS[0]);
-
-  // import progress
+  const [unitCount, setUnitCount] = useState<number>(1);
+  const [units, setUnits] = useState<UnitDraft[]>([{ name: "", state: "", city: "" }]);
   const [importProgress, setImportProgress] = useState(0);
 
   useEffect(() => {
@@ -55,37 +75,54 @@ function OnboardingPage() {
     }
   }, [profile, profileLoading, navigate]);
 
+  // ajusta o array de unidades quando muda a quantidade
+  useEffect(() => {
+    setUnits((prev) => {
+      const next = [...prev];
+      if (unitCount > next.length) {
+        while (next.length < unitCount) next.push({ name: "", state: "", city: "" });
+      } else if (unitCount < next.length) {
+        next.length = unitCount;
+      }
+      return next;
+    });
+  }, [unitCount]);
+
+  const updateUnit = (idx: number, patch: Partial<UnitDraft>) => {
+    setUnits((prev) => prev.map((u, i) => (i === idx ? { ...u, ...patch } : u)));
+  };
+
+  const canSubmit =
+    units.length > 0 &&
+    units.every((u) => u.name.trim() && u.state.trim() && u.city.trim());
+
   const runImport = async () => {
+    if (!canSubmit) {
+      toast.error("Preencha nome, estado e cidade de todas as unidades.");
+      return;
+    }
     setStep("importing");
     setImportProgress(20);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Sessão expirada");
 
-      const payload: {
-        p_company_name: string;
-        p_segment: string;
-        p_unit_name: string;
-        p_city: string;
-        p_state: string;
-      } = {
-        p_company_name: unitName || `${segment} de ${u.user.email}`,
+      const p_units = units.map((x) => ({
+        name: x.name.trim(),
+        state: x.state.trim(),
+        city: x.city.trim(),
+      }));
+      const payload = {
+        p_company_name: units[0].name || `${segment} de ${u.user.email}`,
         p_segment: segment,
-        p_unit_name: unitName,
-        p_city: city,
-        p_state: "",
+        p_units,
       };
       console.log("[onboarding] rpc handle_onboarding payload →", payload);
       setImportProgress(50);
 
-      const { data, error } = await supabase.rpc("handle_onboarding", payload);
+      const { data, error } = await supabase.rpc("handle_onboarding", payload as never);
       if (error) {
-        console.error("[onboarding] handle_onboarding erro:", {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-        });
+        console.error("[onboarding] handle_onboarding erro:", error);
         toast.error(`${error.message || "Erro ao configurar conta"}${error.details ? ` — ${error.details}` : ""}`);
         setStep("units");
         return;
@@ -104,7 +141,7 @@ function OnboardingPage() {
 
       navigate({ to: "/dashboard", replace: true });
     } catch (err: unknown) {
-      const e = err as { code?: string; message?: string; details?: string; hint?: string };
+      const e = err as { message?: string; details?: string };
       console.error("[onboarding] ERRO FINAL:", e);
       toast.error(`${e.message || "Erro ao configurar conta"}${e.details ? ` — ${e.details}` : ""}`);
       setStep("units");
@@ -131,26 +168,19 @@ function OnboardingPage() {
 
       <main className="flex-1 px-6 pb-8 max-w-sm w-full mx-auto flex flex-col">
         {step === "segment" && (
-          <SegmentStep
-            value={segment}
-            onChange={setSegment}
-            onContinue={() => setStep("units")}
-          />
+          <SegmentStep value={segment} onChange={setSegment} onContinue={() => setStep("units")} />
         )}
         {step === "units" && (
           <UnitsStep
-            unitName={unitName}
-            city={city}
             unitCount={unitCount}
-            onUnitName={setUnitName}
-            onCity={setCity}
             onUnitCount={setUnitCount}
+            units={units}
+            updateUnit={updateUnit}
+            canSubmit={canSubmit}
             onContinue={runImport}
           />
         )}
-        {step === "importing" && (
-          <ImportingStep segment={segment} progress={importProgress} />
-        )}
+        {step === "importing" && <ImportingStep segment={segment} progress={importProgress} />}
         {step === "done" && <DoneStep onContinue={() => navigate({ to: "/dashboard" })} />}
       </main>
     </div>
@@ -183,10 +213,7 @@ function ContinueBtn({ onClick, disabled, label = "Continuar" }: { onClick: () =
 function SegmentStep({ value, onChange, onContinue }: { value: string; onChange: (v: string) => void; onContinue: () => void }) {
   return (
     <>
-      <StepHeading
-        title="Qual seu segmento?"
-        subtitle="Isso nos ajuda a preparar sua conta com modelos prontos."
-      />
+      <StepHeading title="Qual seu segmento?" subtitle="Isso nos ajuda a preparar sua conta com modelos prontos." />
       <div className="space-y-3 flex-1">
         {SEGMENTS.map((s) => {
           const active = value === s.id;
@@ -196,9 +223,7 @@ function SegmentStep({ value, onChange, onContinue }: { value: string; onChange:
               key={s.id}
               onClick={() => onChange(s.id)}
               className={`w-full flex items-center gap-3 px-4 h-14 rounded-xl border bg-white text-left transition ${
-                active
-                  ? "border-[var(--franqos-blue)] ring-2 ring-[var(--franqos-blue)]/20"
-                  : "border-slate-200"
+                active ? "border-[var(--franqos-blue)] ring-2 ring-[var(--franqos-blue)]/20" : "border-slate-200"
               }`}
             >
               <Icon size={20} className={s.color} />
@@ -219,64 +244,137 @@ function SegmentStep({ value, onChange, onContinue }: { value: string; onChange:
 }
 
 function UnitsStep({
-  unitName,
-  city,
   unitCount,
-  onUnitName,
-  onCity,
   onUnitCount,
+  units,
+  updateUnit,
+  canSubmit,
   onContinue,
 }: {
-  unitName: string;
-  city: string;
-  unitCount: string;
-  onUnitName: (v: string) => void;
-  onCity: (v: string) => void;
-  onUnitCount: (v: string) => void;
+  unitCount: number;
+  onUnitCount: (n: number) => void;
+  units: UnitDraft[];
+  updateUnit: (idx: number, patch: Partial<UnitDraft>) => void;
+  canSubmit: boolean;
   onContinue: () => void;
 }) {
+  const statesQuery = useQuery({
+    queryKey: ["ibge", "states"],
+    queryFn: fetchStates,
+    staleTime: 1000 * 60 * 60,
+  });
+
   return (
     <>
-      <StepHeading
-        title="Vamos criar sua unidade"
-        subtitle="Você poderá adicionar outras depois."
-      />
+      <StepHeading title="Vamos criar suas unidades" subtitle="Você poderá adicionar outras depois." />
       <div className="space-y-4 flex-1">
-        <Field label="Nome da unidade">
-          <input
-            className={fieldCls}
-            placeholder="Ex: Oggi Itabuna Centro"
-            value={unitName}
-            onChange={(e) => onUnitName(e.target.value)}
-          />
-        </Field>
-        <Field label="Cidade">
-          <input
-            className={fieldCls}
-            placeholder="Ex: Itabuna - BA"
-            value={city}
-            onChange={(e) => onCity(e.target.value)}
-          />
-        </Field>
         <Field label="Quantas unidades você possui?">
           <select
             className={fieldCls + " bg-white"}
             value={unitCount}
-            onChange={(e) => onUnitCount(e.target.value)}
+            onChange={(e) => onUnitCount(Number(e.target.value))}
           >
-            {UNIT_COUNTS.map((u) => (
-              <option key={u}>{u}</option>
+            {UNIT_COUNT_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n === 1 ? "1 unidade" : `${n} unidades`}
+              </option>
             ))}
           </select>
         </Field>
+
+        {units.map((u, idx) => (
+          <UnitBlock
+            key={idx}
+            index={idx}
+            unit={u}
+            states={statesQuery.data ?? []}
+            statesLoading={statesQuery.isLoading}
+            onChange={(patch) => updateUnit(idx, patch)}
+          />
+        ))}
       </div>
+
       <div className="pt-6">
-        <ContinueBtn onClick={onContinue} disabled={!unitName} />
+        <ContinueBtn onClick={onContinue} disabled={!canSubmit} />
         <div className="flex justify-center gap-1.5 mt-4">
           <Dot /> <Dot active /> <Dot /> <Dot />
         </div>
       </div>
     </>
+  );
+}
+
+function UnitBlock({
+  index,
+  unit,
+  states,
+  statesLoading,
+  onChange,
+}: {
+  index: number;
+  unit: UnitDraft;
+  states: IbgeState[];
+  statesLoading: boolean;
+  onChange: (patch: Partial<UnitDraft>) => void;
+}) {
+  const citiesQuery = useQuery({
+    queryKey: ["ibge", "cities", unit.state],
+    queryFn: () => fetchCities(unit.state),
+    enabled: !!unit.state,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Unidade {index + 1}
+        </span>
+        {index === 0 && <span className="text-[10px] text-slate-400">principal</span>}
+      </div>
+      <Field label="Nome da unidade">
+        <input
+          className={fieldCls}
+          placeholder="Ex: Oggi Itabuna Centro"
+          value={unit.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Estado (UF)">
+          <select
+            className={fieldCls + " bg-white"}
+            value={unit.state}
+            onChange={(e) => onChange({ state: e.target.value, city: "" })}
+            disabled={statesLoading}
+          >
+            <option value="">{statesLoading ? "Carregando…" : "Selecione"}</option>
+            {states.map((s) => (
+              <option key={s.id} value={s.sigla}>
+                {s.sigla} — {s.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Cidade">
+          <select
+            className={fieldCls + " bg-white"}
+            value={unit.city}
+            onChange={(e) => onChange({ city: e.target.value })}
+            disabled={!unit.state || citiesQuery.isLoading}
+          >
+            <option value="">
+              {!unit.state ? "Escolha o estado" : citiesQuery.isLoading ? "Carregando…" : "Selecione"}
+            </option>
+            {(citiesQuery.data ?? []).map((c) => (
+              <option key={c.id} value={c.nome}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+    </div>
   );
 }
 
@@ -318,10 +416,7 @@ function ImportingStep({ segment, progress }: { segment: string; progress: numbe
 
       <div className="w-full max-w-xs mt-8">
         <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
-          <div
-            className="h-full bg-[var(--franqos-blue)] transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full bg-[var(--franqos-blue)] transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
         <div className="text-right text-xs text-slate-500 mt-1">{progress}%</div>
       </div>
@@ -363,9 +458,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Dot({ active }: { active?: boolean }) {
-  return (
-    <span
-      className={`w-1.5 h-1.5 rounded-full ${active ? "bg-[var(--franqos-blue)] w-4" : "bg-slate-300"} transition-all`}
-    />
-  );
+  return <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-[var(--franqos-blue)] w-4" : "bg-slate-300"} transition-all`} />;
 }
