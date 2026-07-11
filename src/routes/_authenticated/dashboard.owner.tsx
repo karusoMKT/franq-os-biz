@@ -7,7 +7,8 @@ import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loading } from "@/components/loading";
-import { Building2, TrendingUp, AlertTriangle, Target } from "lucide-react";
+import { Building2, TrendingUp, AlertTriangle, Target, MapPin } from "lucide-react";
+import { UnitsMap } from "@/components/units-map";
 
 export const Route = createFileRoute("/_authenticated/dashboard/owner")({
   head: () => ({ meta: [{ title: "Dashboard Proprietário - FranqOS" }] }),
@@ -35,7 +36,7 @@ function OwnerDashboard() {
     queryKey: ["owner-dashboard", companyId],
     queryFn: async () => {
       const [units, fin, scores, occ, notif] = await Promise.all([
-        supabase.from("units").select("id,name,city,status").eq("company_id", companyId!),
+        supabase.from("units").select("id,name,city,state,latitude,longitude,score,status").eq("company_id", companyId!),
         supabase.from("unit_financial_summary").select("*").eq("company_id", companyId!),
         supabase.from("operational_scores").select("unit_id,score,status"),
         supabase.from("occurrences").select("id,title,severity,status,created_at").eq("company_id", companyId!).order("created_at", { ascending: false }).limit(5),
