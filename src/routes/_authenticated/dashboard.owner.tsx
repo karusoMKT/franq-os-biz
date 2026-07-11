@@ -7,7 +7,8 @@ import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loading } from "@/components/loading";
-import { Building2, TrendingUp, AlertTriangle, Target } from "lucide-react";
+import { Building2, TrendingUp, AlertTriangle, Target, MapPin } from "lucide-react";
+import { UnitsMap } from "@/components/units-map";
 
 export const Route = createFileRoute("/_authenticated/dashboard/owner")({
   head: () => ({ meta: [{ title: "Dashboard Proprietário - FranqOS" }] }),
@@ -35,7 +36,7 @@ function OwnerDashboard() {
     queryKey: ["owner-dashboard", companyId],
     queryFn: async () => {
       const [units, fin, scores, occ, notif] = await Promise.all([
-        supabase.from("units").select("id,name,city,status").eq("company_id", companyId!),
+        supabase.from("units").select("id,name,city,state,latitude,longitude,score,status").eq("company_id", companyId!),
         supabase.from("unit_financial_summary").select("*").eq("company_id", companyId!),
         supabase.from("operational_scores").select("unit_id,score,status"),
         supabase.from("occurrences").select("id,title,severity,status,created_at").eq("company_id", companyId!).order("created_at", { ascending: false }).limit(5),
@@ -66,12 +67,32 @@ function OwnerDashboard() {
     <MobileShell profile={profile} title={`Olá, ${profile.name?.split(" ")[0] ?? "Proprietário"}`} subtitle="Visão geral da rede" unreadCount={data?.unread ?? 0}>
       {error && <Card className="p-4 text-sm text-red-600">Erro ao carregar dados.</Card>}
 
+      <Card className="p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-sm font-semibold">
+            <MapPin size={16} className="text-[color:var(--franqos-blue)]" />
+            Mapa da rede
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-600" />Saudável</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />Atenção</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-600" />Crítico</span>
+          </div>
+        </div>
+        {dataLoading ? (
+          <Skeleton className="h-64 w-full rounded-lg" />
+        ) : (
+          <UnitsMap units={(data?.units ?? []) as any} />
+        )}
+      </Card>
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard loading={dataLoading} icon={<Building2 size={18} />} label="Unidades" value={String(data?.units.length ?? 0)} />
         <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score médio" value={String(avgScore)} suffix="/10" />
         <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(totalRevenue)} />
         <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(totalProfit)} />
       </div>
+
 
       <section>
         <h3 className="text-sm font-semibold mb-2">Unidades</h3>
