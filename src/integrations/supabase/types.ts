@@ -82,6 +82,54 @@ export type Database = {
           },
         ]
       }
+      audits: {
+        Row: {
+          audit_date: string | null
+          auditor_id: string | null
+          categories: Json | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          score: number
+          unit_id: string | null
+        }
+        Insert: {
+          audit_date?: string | null
+          auditor_id?: string | null
+          categories?: Json | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          score: number
+          unit_id?: string | null
+        }
+        Update: {
+          audit_date?: string | null
+          auditor_id?: string | null
+          categories?: Json | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          score?: number
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audits_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "audits_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_executions: {
         Row: {
           checked_items: Json
