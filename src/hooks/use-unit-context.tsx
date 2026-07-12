@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
@@ -29,19 +29,21 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
   const companyId = profile?.company_id ?? null;
   const canLoadCompanyUnits = profile?.role === "owner" && !!companyId;
 
-  const [selectedUnitId, setSelectedUnitIdState] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    const v = window.localStorage.getItem(STORAGE_KEY);
-    return v && v !== "null" ? v : null;
-  });
+  const [selectedUnitId, setSelectedUnitIdState] = useState<string | null>(null);
 
-  const setSelectedUnitId = (id: string | null) => {
+  useEffect(() => {
+    if (typeof window === "undefined" || profile?.role !== "owner") return;
+    const storedUnitId = window.localStorage.getItem(STORAGE_KEY);
+    if (storedUnitId && storedUnitId !== "null") setSelectedUnitIdState(storedUnitId);
+  }, [profile?.role]);
+
+  const setSelectedUnitId = useCallback((id: string | null) => {
     setSelectedUnitIdState(id);
     if (typeof window !== "undefined") {
       if (id) window.localStorage.setItem(STORAGE_KEY, id);
       else window.localStorage.removeItem(STORAGE_KEY);
     }
-  };
+  }, []);
 
   const { data: units, isLoading, isError, error } = useQuery({
     enabled: canLoadCompanyUnits,
@@ -69,7 +71,7 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!units || !selectedUnitId) return;
     if (!units.some((u) => u.id === selectedUnitId)) setSelectedUnitId(null);
-  }, [units, selectedUnitId]);
+  }, [units, selectedUnitId, setSelectedUnitId]);
 
   const value = useMemo<UnitContextValue>(() => {
     const list = units ?? [];
@@ -82,7 +84,7 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
       errorMessage: error instanceof Error ? error.message : null,
       selectedUnit: list.find((u) => u.id === selectedUnitId) ?? null,
     };
-  }, [selectedUnitId, units, canLoadCompanyUnits, isLoading, isError, error]);
+  }, [selectedUnitId, setSelectedUnitId, units, canLoadCompanyUnits, isLoading, isError, error]);
 
   return <UnitContext.Provider value={value}>{children}</UnitContext.Provider>;
 }
