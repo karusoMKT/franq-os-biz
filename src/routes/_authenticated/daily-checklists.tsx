@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
   head: () => ({ meta: [{ title: "Rotina Diária - FranqOS" }] }),
@@ -66,10 +67,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 function DailyChecklistsPage() {
   const { profile, loading } = useProfile();
   const queryClient = useQueryClient();
+  const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const companyId = profile?.company_id ?? null;
-  const unitId = profile?.unit_id ?? null;
+  // Owners: use the switcher context; other roles: locked to their unit
+  const unitId = profile?.role === "owner" ? selectedUnitId : profile?.unit_id ?? null;
 
   const { data: checklists, isLoading: loadingLists } = useQuery({
     enabled: !!companyId,
@@ -203,12 +206,15 @@ function DailyChecklistsPage() {
         <Card className="p-6 flex flex-col items-center gap-3 text-center">
           <AlertTriangle className="text-amber-500" />
           <div className="text-sm">
-            Seu perfil ainda não está vinculado a uma unidade. Peça ao proprietário para associá-lo a uma unidade antes de preencher checklists.
+            {profile.role === "owner"
+              ? "Selecione uma unidade específica no seletor de contexto (topo da tela) para visualizar e preencher os checklists do dia."
+              : "Seu perfil ainda não está vinculado a uma unidade. Peça ao proprietário para associá-lo a uma unidade antes de preencher checklists."}
           </div>
         </Card>
       </MobileShell>
     );
   }
+
 
   if (activeExec && activeChecklist) {
     const locked = activeExec.status === "completed";
@@ -273,8 +279,13 @@ function DailyChecklistsPage() {
     );
   }
 
+  const dateStr = today().split("-").reverse().join("/");
+  const subtitle = selectedUnit && profile.role === "owner"
+    ? `${selectedUnit.name} · ${dateStr}`
+    : `Checklists de hoje · ${dateStr}`;
+
   return (
-    <MobileShell profile={profile} title="Rotina Diária" subtitle={`Checklists de hoje · ${today().split("-").reverse().join("/")}`}>
+    <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
       {loadingLists || loadingExecs ? (
         <div className="space-y-2">
           <Skeleton className="h-20 w-full" />

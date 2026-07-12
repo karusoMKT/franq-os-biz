@@ -3,6 +3,7 @@ import { Bell } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { FranqosLogo } from "./franqos-logo";
 import { BottomNav } from "./bottom-nav";
+import { UnitSwitcher } from "./unit-switcher";
 import type { Profile } from "@/hooks/use-profile";
 
 export function MobileShell({
@@ -38,6 +39,11 @@ export function MobileShell({
             )}
           </Link>
         </div>
+        {profile.role === "owner" && (
+          <div className="mx-auto max-w-md px-4 pb-2 flex justify-end">
+            <UnitSwitcher />
+          </div>
+        )}
       </header>
       <main className="mx-auto max-w-md px-4 py-4 space-y-4">{children}</main>
       <BottomNav role={profile.role} />
