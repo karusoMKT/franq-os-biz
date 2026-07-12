@@ -3,6 +3,7 @@ import { Bell } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { FranqosLogo } from "./franqos-logo";
 import { BottomNav } from "./bottom-nav";
+import { UnitSwitcher } from "./unit-switcher";
 import type { Profile } from "@/hooks/use-profile";
 
 export function MobileShell({
