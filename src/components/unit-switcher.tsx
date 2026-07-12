@@ -8,14 +8,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUnitContext } from "@/hooks/use-unit-context";
-import { useProfile } from "@/hooks/use-profile";
+import type { Profile } from "@/hooks/use-profile";
 
-export function UnitSwitcher() {
-  const { profile } = useProfile();
-  const { selectedUnitId, setSelectedUnitId, units, selectedUnit, isLoading } = useUnitContext();
+export function UnitSwitcher({ profile }: { profile: Profile }) {
+  const { selectedUnitId, setSelectedUnitId, units, selectedUnit, isLoading, isError, errorMessage } = useUnitContext();
 
   // Only owners can switch context
-  if (!profile || profile.role !== "owner") return null;
+  if (profile.role !== "owner") return null;
 
   const label = selectedUnit ? selectedUnit.name : "Visão Geral";
 
@@ -51,6 +50,11 @@ export function UnitSwitcher() {
         {!isLoading && units.length === 0 && (
           <DropdownMenuItem disabled className="text-xs text-muted-foreground">
             Nenhuma unidade cadastrada
+          </DropdownMenuItem>
+        )}
+        {isError && (
+          <DropdownMenuItem disabled className="text-xs text-red-600">
+            {errorMessage ?? "Erro ao carregar unidades"}
           </DropdownMenuItem>
         )}
         {units.map((u) => (

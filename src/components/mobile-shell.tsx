@@ -41,7 +41,7 @@ export function MobileShell({
         </div>
         {profile.role === "owner" && (
           <div className="mx-auto max-w-md px-4 pb-2 flex justify-end">
-            <UnitSwitcher />
+            <UnitSwitcher profile={profile} />
           </div>
         )}
       </header>

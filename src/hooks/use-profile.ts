@@ -76,7 +76,8 @@ export const profileQueryOptions = () =>
     queryKey: PROFILE_QUERY_KEY,
     queryFn: fetchProfile,
     retry: false,
-    staleTime: 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
 export function useProfile() {
@@ -84,7 +85,7 @@ export function useProfile() {
 
   return {
     profile: query.data ?? null,
-    loading: query.isPending || query.isFetching,
+    loading: query.isPending,
     error: query.error instanceof Error ? query.error.message : null,
   };
 }

@@ -15,6 +15,8 @@ type UnitContextValue = {
   setSelectedUnitId: (id: string | null) => void;
   units: UnitOption[];
   isLoading: boolean;
+  isError: boolean;
+  errorMessage: string | null;
   selectedUnit: UnitOption | null;
 };
 
@@ -25,6 +27,7 @@ const STORAGE_KEY = "franqos:selected-unit-id";
 export function UnitContextProvider({ children }: { children: ReactNode }) {
   const { profile } = useProfile();
   const companyId = profile?.company_id ?? null;
+  const canLoadCompanyUnits = profile?.role === "owner" && !!companyId;
 
   const [selectedUnitId, setSelectedUnitIdState] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -40,8 +43,8 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const { data: units, isLoading } = useQuery({
-    enabled: !!companyId,
+  const { data: units, isLoading, isError, error } = useQuery({
+    enabled: canLoadCompanyUnits,
     queryKey: ["company-units", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -52,14 +55,15 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       return (data ?? []) as UnitOption[];
     },
+    refetchOnWindowFocus: false,
   });
 
   // For non-owners, lock context to their unit
   useEffect(() => {
-    if (profile && profile.role !== "owner" && profile.unit_id) {
-      if (selectedUnitId !== profile.unit_id) setSelectedUnitIdState(profile.unit_id);
+    if (profile?.role !== "owner" && profile?.unit_id && selectedUnitId !== profile.unit_id) {
+      setSelectedUnitIdState(profile.unit_id);
     }
-  }, [profile, selectedUnitId]);
+  }, [profile?.role, profile?.unit_id, selectedUnitId]);
 
   // If selected unit no longer exists, reset
   useEffect(() => {
@@ -73,10 +77,12 @@ export function UnitContextProvider({ children }: { children: ReactNode }) {
       selectedUnitId,
       setSelectedUnitId,
       units: list,
-      isLoading,
+      isLoading: canLoadCompanyUnits ? isLoading : false,
+      isError,
+      errorMessage: error instanceof Error ? error.message : null,
       selectedUnit: list.find((u) => u.id === selectedUnitId) ?? null,
     };
-  }, [selectedUnitId, units, isLoading]);
+  }, [selectedUnitId, units, canLoadCompanyUnits, isLoading, isError, error]);
 
   return <UnitContext.Provider value={value}>{children}</UnitContext.Provider>;
 }
