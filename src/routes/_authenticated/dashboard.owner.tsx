@@ -95,11 +95,14 @@ function OwnerDashboard() {
     },
   });
 
-  if (loading || !profile) {
-    return <Loading />;
-  }
   if (profileError) {
     return <DashboardErrorCard title="Erro ao carregar perfil" message={profileError} />;
+  }
+  if (loading) {
+    return <Loading />;
+  }
+  if (!profile) {
+    return <DashboardErrorCard title="Perfil não encontrado" message="Seu usuário ainda não está vinculado a um perfil." />;
   }
   if (profile.role !== "owner") return null;
 

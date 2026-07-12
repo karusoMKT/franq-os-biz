@@ -47,14 +47,14 @@ export function UnitSwitcher({ profile }: { profile: Profile }) {
             Carregando...
           </DropdownMenuItem>
         )}
-        {!isLoading && units.length === 0 && (
-          <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-            Nenhuma unidade cadastrada
-          </DropdownMenuItem>
-        )}
         {isError && (
           <DropdownMenuItem disabled className="text-xs text-red-600">
             {errorMessage ?? "Erro ao carregar unidades"}
+          </DropdownMenuItem>
+        )}
+        {!isLoading && !isError && units.length === 0 && (
+          <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+            Nenhuma unidade cadastrada
           </DropdownMenuItem>
         )}
         {units.map((u) => (
