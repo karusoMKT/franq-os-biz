@@ -67,10 +67,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 function DailyChecklistsPage() {
   const { profile, loading } = useProfile();
   const queryClient = useQueryClient();
+  const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const companyId = profile?.company_id ?? null;
-  const unitId = profile?.unit_id ?? null;
+  // Owners: use the switcher context; other roles: locked to their unit
+  const unitId = profile?.role === "owner" ? selectedUnitId : profile?.unit_id ?? null;
 
   const { data: checklists, isLoading: loadingLists } = useQuery({
     enabled: !!companyId,
