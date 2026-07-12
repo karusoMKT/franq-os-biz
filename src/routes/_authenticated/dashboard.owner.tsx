@@ -4,8 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/loading";
 import { Building2, TrendingUp, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck } from "lucide-react";
 import { UnitsMap } from "@/components/units-map";
@@ -21,7 +22,7 @@ function fmtBRL(v: number) {
 }
 
 function OwnerDashboard() {
-  const { profile, loading } = useProfile();
+  const { profile, loading, error: profileError } = useProfile();
   const navigate = useNavigate();
   const { selectedUnitId, selectedUnit } = useUnitContext();
 
@@ -33,7 +34,7 @@ function OwnerDashboard() {
 
   const companyId = profile?.company_id ?? null;
 
-  const { data, isLoading: dataLoading, error } = useQuery({
+  const { data, isLoading: dataLoading, isError: dataIsError, error } = useQuery({
     enabled: !!companyId,
     queryKey: ["owner-dashboard", companyId],
     queryFn: async () => {
@@ -44,6 +45,9 @@ function OwnerDashboard() {
         supabase.from("occurrences").select("id,title,severity,status,created_at,unit_id").eq("company_id", companyId!).order("created_at", { ascending: false }).limit(20),
         supabase.from("notifications").select("id,is_read").eq("company_id", companyId!).eq("is_read", false),
       ]);
+      const firstError = [units.error, fin.error, scores.error, occ.error, notif.error].find(Boolean);
+      if (firstError) throw firstError;
+
       return {
         units: units.data ?? [],
         fin: fin.data ?? [],
@@ -55,7 +59,7 @@ function OwnerDashboard() {
   });
 
   // Recent audits for a specific unit
-  const { data: unitAudits, isLoading: auditsLoading } = useQuery({
+  const { data: unitAudits, isLoading: auditsLoading, isError: auditsIsError, error: auditsError } = useQuery({
     enabled: !!selectedUnitId,
     queryKey: ["unit-audits", selectedUnitId],
     queryFn: async () => {
@@ -72,7 +76,7 @@ function OwnerDashboard() {
 
   // Pending daily checklists for a specific unit
   const today = new Date().toISOString().slice(0, 10);
-  const { data: unitChecklists, isLoading: checklistsLoading } = useQuery({
+  const { data: unitChecklists, isLoading: checklistsLoading, isError: checklistsIsError, error: checklistsError } = useQuery({
     enabled: !!selectedUnitId && !!companyId,
     queryKey: ["unit-daily-checklists", selectedUnitId, today],
     queryFn: async () => {
@@ -80,6 +84,8 @@ function OwnerDashboard() {
         supabase.from("checklists").select("id,title,is_critical").eq("company_id", companyId!),
         supabase.from("checklist_executions").select("checklist_id,status").eq("unit_id", selectedUnitId!).eq("execution_date", today),
       ]);
+      const firstError = [tpl.error, exec.error].find(Boolean);
+      if (firstError) throw firstError;
       const done = new Set((exec.data ?? []).filter((e: any) => e.status === "completed").map((e: any) => e.checklist_id));
       const templates = tpl.data ?? [];
       return {
@@ -89,10 +95,24 @@ function OwnerDashboard() {
     },
   });
 
-  if (loading || !profile) {
+  if (profileError) {
+    return <DashboardErrorCard title="Erro ao carregar perfil" message={profileError} />;
+  }
+  if (loading) {
     return <Loading />;
   }
+  if (!profile) {
+    return <DashboardErrorCard title="Perfil não encontrado" message="Seu usuário ainda não está vinculado a um perfil." />;
+  }
   if (profile.role !== "owner") return null;
+
+  if (dataIsError) {
+    return (
+      <MobileShell profile={profile} title="Dashboard" subtitle="Falha ao carregar dados">
+        <DashboardErrorCard title="Erro ao carregar o Dashboard" message={error instanceof Error ? error.message : "Erro desconhecido."} />
+      </MobileShell>
+    );
+  }
 
   const isOverview = !selectedUnitId;
 
@@ -120,8 +140,6 @@ function OwnerDashboard() {
       subtitle={isOverview ? "Visão geral da rede" : [selectedUnit?.city, selectedUnit?.state].filter(Boolean).join(" · ") || "Unidade selecionada"}
       unreadCount={data?.unread ?? 0}
     >
-      {error && <Card className="p-4 text-sm text-red-600">Erro ao carregar dados.</Card>}
-
       {isOverview && (
         <Card className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -197,6 +215,8 @@ function OwnerDashboard() {
           </h3>
           {checklistsLoading ? (
             <Skeleton className="h-20 w-full" />
+          ) : checklistsIsError ? (
+            <InlineError message={checklistsError instanceof Error ? checklistsError.message : "Erro ao carregar rotinas."} />
           ) : unitChecklists && unitChecklists.pending.length ? (
             <ul className="space-y-2">
               {unitChecklists.pending.map((c: any) => (
@@ -223,6 +243,8 @@ function OwnerDashboard() {
           </h3>
           {auditsLoading ? (
             <Skeleton className="h-20 w-full" />
+          ) : auditsIsError ? (
+            <InlineError message={auditsError instanceof Error ? auditsError.message : "Erro ao carregar auditorias."} />
           ) : unitAudits && unitAudits.length ? (
             <ul className="space-y-2">
               {unitAudits.map((a: any) => (
@@ -293,4 +315,26 @@ function StatCard({ icon, label, value, suffix, loading }: { icon: React.ReactNo
 
 function EmptyState({ text }: { text: string }) {
   return <Card className="p-6 text-center text-sm text-muted-foreground">{text}</Card>;
+}
+
+function InlineError({ message }: { message: string }) {
+  return <Card className="p-4 text-sm text-red-600">{message}</Card>;
+}
+
+function DashboardErrorCard({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="max-w-md w-full">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{message}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Recarregar
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
