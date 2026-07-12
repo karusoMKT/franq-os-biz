@@ -7,8 +7,9 @@ import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loading } from "@/components/loading";
-import { Building2, TrendingUp, AlertTriangle, Target, MapPin } from "lucide-react";
+import { Building2, TrendingUp, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck } from "lucide-react";
 import { UnitsMap } from "@/components/units-map";
+import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/dashboard/owner")({
   head: () => ({ meta: [{ title: "Dashboard Proprietário - FranqOS" }] }),
