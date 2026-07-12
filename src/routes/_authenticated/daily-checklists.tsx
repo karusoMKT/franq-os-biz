@@ -279,8 +279,13 @@ function DailyChecklistsPage() {
     );
   }
 
+  const dateStr = today().split("-").reverse().join("/");
+  const subtitle = selectedUnit && profile.role === "owner"
+    ? `${selectedUnit.name} · ${dateStr}`
+    : `Checklists de hoje · ${dateStr}`;
+
   return (
-    <MobileShell profile={profile} title="Rotina Diária" subtitle={`Checklists de hoje · ${today().split("-").reverse().join("/")}`}>
+    <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
       {loadingLists || loadingExecs ? (
         <div className="space-y-2">
           <Skeleton className="h-20 w-full" />
