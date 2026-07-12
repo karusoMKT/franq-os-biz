@@ -206,12 +206,15 @@ function DailyChecklistsPage() {
         <Card className="p-6 flex flex-col items-center gap-3 text-center">
           <AlertTriangle className="text-amber-500" />
           <div className="text-sm">
-            Seu perfil ainda não está vinculado a uma unidade. Peça ao proprietário para associá-lo a uma unidade antes de preencher checklists.
+            {profile.role === "owner"
+              ? "Selecione uma unidade específica no seletor de contexto (topo da tela) para visualizar e preencher os checklists do dia."
+              : "Seu perfil ainda não está vinculado a uma unidade. Peça ao proprietário para associá-lo a uma unidade antes de preencher checklists."}
           </div>
         </Card>
       </MobileShell>
     );
   }
+
 
   if (activeExec && activeChecklist) {
     const locked = activeExec.status === "completed";
