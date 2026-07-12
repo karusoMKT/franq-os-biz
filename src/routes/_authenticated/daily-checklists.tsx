@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
   head: () => ({ meta: [{ title: "Rotina Diária - FranqOS" }] }),
