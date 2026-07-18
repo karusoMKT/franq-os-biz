@@ -137,6 +137,8 @@ function FinancePage() {
     if (selectedUnitId) return [selectedUnitId];
     return units.map((u) => u.id);
   }, [selectedUnitId, units]);
+  const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
+  const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<RecurringExpense | null>(null);
 
   const txQuery = useQuery({
     enabled: !!companyId && unitIds.length > 0,
