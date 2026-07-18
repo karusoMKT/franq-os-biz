@@ -95,6 +95,33 @@ function OwnerDashboard() {
     },
   });
 
+  // Transactions for financial calculations (respects unit context)
+  const unitIdsForFinance = selectedUnitId
+    ? [selectedUnitId]
+    : (data?.units ?? []).map((u: any) => u.id);
+
+  const { data: transactions, isLoading: finLoading } = useQuery({
+    enabled: unitIdsForFinance.length > 0,
+    queryKey: ["owner-dashboard-finance", companyId, selectedUnitId ?? "all", unitIdsForFinance.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("type,amount,unit_id")
+        .in("unit_id", unitIdsForFinance);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const finance = (() => {
+    const list = transactions ?? [];
+    const revenue = list.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const expense = list.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const profit = revenue - expense;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { revenue, expense, profit, margin };
+  })();
+
   if (profileError) {
     return <DashboardErrorCard title="Erro ao carregar perfil" message={profileError} />;
   }
