@@ -77,6 +77,7 @@ type RecurringExpense = {
 
 const INCOME_CATEGORIES = ["Vendas", "Faturamento", "Serviços", "Outros"];
 const EXPENSE_CATEGORIES = [
+  "Mercadoria",
   "Aluguel",
   "Folha de Pagamento",
   "Energia",
@@ -88,6 +89,7 @@ const EXPENSE_CATEGORIES = [
   "Insumos",
   "Outros",
 ];
+const HIGHLIGHT_CATEGORIES = ["Mercadoria"];
 
 export function fmtBRL(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
