@@ -30,6 +30,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loading } from "@/components/loading";
 
 export const Route = createFileRoute("/_authenticated/finance")({
@@ -127,6 +137,8 @@ function FinancePage() {
     if (selectedUnitId) return [selectedUnitId];
     return units.map((u) => u.id);
   }, [selectedUnitId, units]);
+  const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
+  const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<RecurringExpense | null>(null);
 
   const txQuery = useQuery({
     enabled: !!companyId && unitIds.length > 0,
@@ -185,8 +197,10 @@ function FinancePage() {
     },
     onSuccess: () => {
       toast.success("Lançamento excluído.");
+      setPendingDeleteTx(null);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao excluir."),
   });
@@ -198,8 +212,10 @@ function FinancePage() {
     },
     onSuccess: () => {
       toast.success("Gasto fixo excluído.");
+      setPendingDeleteRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao excluir."),
   });
@@ -311,7 +327,7 @@ function FinancePage() {
                           aria-label="Excluir"
                           className="text-muted-foreground hover:text-red-600 p-1"
                           onClick={() => {
-                            if (confirm("Excluir este lançamento?")) deleteMutation.mutate(t.id);
+                            setPendingDeleteTx(t);
                           }}
                         >
                           <Trash2 size={14} />
@@ -372,7 +388,7 @@ function FinancePage() {
                           aria-label="Excluir"
                           className="text-muted-foreground hover:text-red-600 p-1"
                           onClick={() => {
-                            if (confirm("Excluir este gasto fixo?")) deleteRecurringMutation.mutate(r.id);
+                            setPendingDeleteRecurring(r);
                           }}
                         >
                           <Trash2 size={14} />
@@ -408,6 +424,59 @@ function FinancePage() {
           queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
         }}
       />
+      <AlertDialog
+        open={!!pendingDeleteTx}
+        onOpenChange={(v) => !v && setPendingDeleteTx(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteTx) deleteMutation.mutate(pendingDeleteTx.id);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!pendingDeleteRecurring}
+        onOpenChange={(v) => !v && setPendingDeleteRecurring(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir gasto fixo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este gasto fixo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteRecurringMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteRecurringMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteRecurring) deleteRecurringMutation.mutate(pendingDeleteRecurring.id);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteRecurringMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MobileShell>
   );
 }
