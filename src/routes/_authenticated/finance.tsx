@@ -527,6 +527,8 @@ function TransactionDialog({
   const [type, setType] = useState<"income" | "expense">("income");
   const [category, setCategory] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [mode, setMode] = useState<"single" | "period">("single");
+  const [singleDate, setSingleDate] = useState<string>(today());
   const [startDate, setStartDate] = useState<string>(today());
   const [endDate, setEndDate] = useState<string>(today());
   const [description, setDescription] = useState<string>("");
