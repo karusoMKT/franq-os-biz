@@ -554,37 +554,26 @@ function TransactionDialog({
     if (!value || value <= 0) return toast.error("Informe um valor válido.");
     if (!category) return toast.error("Selecione a categoria.");
 
-    const payload =
-      mode === "single"
-        ? {
-            unit_id: effectiveUnitId,
-            type,
-            category,
-            amount: value,
-            date: singleDate,
-            period_start: null,
-            period_end: null,
-            description: description || null,
-            period_type: "daily" as PeriodType,
-          }
-        : {
-            unit_id: effectiveUnitId,
-            type,
-            category,
-            amount: value,
-            date: endDate,
-            period_start: startDate || endDate,
-            period_end: endDate,
-            description: description || null,
-            period_type: inferPeriodType(startDate || null, endDate),
-          };
-
+    if (mode === "single" && !singleDate) return toast.error("Informe a data do lançamento.");
     if (mode === "period") {
       if (!endDate) return toast.error("Informe a data final.");
       if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
-    } else {
-      if (!singleDate) return toast.error("Informe a data do lançamento.");
     }
+
+    const period_type: PeriodType =
+      mode === "single" ? "daily" : inferPeriodType(startDate || null, endDate);
+
+    const payload = {
+      unit_id: effectiveUnitId,
+      type,
+      category,
+      amount: value,
+      date: mode === "single" ? singleDate : endDate,
+      period_start: mode === "single" ? null : startDate || endDate,
+      period_end: mode === "single" ? null : endDate,
+      description: description || null,
+      period_type,
+    };
 
     setSaving(true);
     const { error } = await supabase.from("transactions").insert(payload);
