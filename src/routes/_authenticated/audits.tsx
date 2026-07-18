@@ -10,8 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -37,23 +38,25 @@ export const Route = createFileRoute("/_authenticated/audits")({
   ),
 });
 
-const CATEGORIES = [
-  { key: "cleanliness", label: "Limpeza e Organização" },
-  { key: "product_quality", label: "Qualidade do Produto" },
-  { key: "service", label: "Atendimento" },
-  { key: "visual_standard", label: "Padrão Visual" },
+const QUESTIONS = [
+  { key: "q1", label: "Freezers na temperatura e organização corretas?" },
+  { key: "q2", label: "Fachada e calçada limpas?" },
+  { key: "q3", label: "Uniforme dos atendentes completo?" },
+  { key: "q4", label: "Estoque de casquinhas e embalagens organizado?" },
+  { key: "q5", label: "Fechamento de caixa do dia anterior validado?" },
 ] as const;
 
-type CategoryKey = typeof CATEGORIES[number]["key"];
-type Scores = Record<CategoryKey, number>;
+type QKey = typeof QUESTIONS[number]["key"];
+type Answers = Record<QKey, boolean>;
 
 type Audit = {
   id: string;
   unit_id: string | null;
+  auditor_name: string | null;
   audit_date: string | null;
   score: number;
   notes: string | null;
-  categories: Record<string, number> | null;
+  categories: Record<string, unknown> | null;
   created_at: string | null;
 };
 
@@ -64,20 +67,26 @@ function scoreColor(s: number) {
   if (s >= 50) return "bg-yellow-500";
   return "bg-red-500";
 }
+function scoreLabel(s: number) {
+  if (s >= 80) return "Saudável";
+  if (s >= 50) return "Atenção";
+  return "Crítico";
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+const emptyAnswers = (): Answers => ({ q1: false, q2: false, q3: false, q4: false, q5: false });
 
 function AuditsPage() {
   const { profile, loading } = useProfile();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [notesOpen, setNotesOpen] = useState<Audit | null>(null);
+  const [detail, setDetail] = useState<Audit | null>(null);
+
   const [unitId, setUnitId] = useState<string>("");
-  const [scores, setScores] = useState<Scores>({
-    cleanliness: 7,
-    product_quality: 7,
-    service: 7,
-    visual_standard: 7,
-  });
-  const [notes, setNotes] = useState("");
+  const [auditorName, setAuditorName] = useState<string>("");
+  const [auditDate, setAuditDate] = useState<string>(today());
+  const [answers, setAnswers] = useState<Answers>(emptyAnswers());
+  const [notes, setNotes] = useState<string>("");
 
   const companyId = profile?.company_id ?? null;
 
@@ -101,7 +110,7 @@ function AuditsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audits")
-        .select("id,unit_id,audit_date,score,notes,categories,created_at")
+        .select("id,unit_id,auditor_name,audit_date,score,notes,categories,created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Audit[];
@@ -114,43 +123,48 @@ function AuditsPage() {
     return m;
   }, [unitsQuery.data]);
 
-  const finalScore = useMemo(() => {
-    const vals = CATEGORIES.map((c) => scores[c.key]);
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return Math.round(avg * 10);
-  }, [scores]);
+  const score = useMemo(
+    () => QUESTIONS.reduce((sum, q) => sum + (answers[q.key] ? 20 : 0), 0),
+    [answers],
+  );
 
-  const resetForm = () => {
+  const reset = () => {
     setUnitId("");
-    setScores({ cleanliness: 7, product_quality: 7, service: 7, visual_standard: 7 });
+    setAuditorName(profile?.full_name ?? "");
+    setAuditDate(today());
+    setAnswers(emptyAnswers());
     setNotes("");
   };
 
   const createAudit = useMutation({
     mutationFn: async () => {
       if (!unitId) throw new Error("Selecione uma unidade");
+      if (!auditorName.trim()) throw new Error("Informe o nome do auditor");
       const { data: userData } = await supabase.auth.getUser();
-      const categories: Record<string, number> = {};
-      CATEGORIES.forEach((c) => (categories[c.key] = scores[c.key]));
-      const { error } = await supabase.from("audits").insert({
+      const categories: Record<string, boolean> = {};
+      QUESTIONS.forEach((q) => (categories[q.key] = answers[q.key]));
+      const payload = {
         unit_id: unitId,
         auditor_id: userData.user?.id ?? null,
-        audit_date: new Date().toISOString().slice(0, 10),
-        score: finalScore,
+        auditor_name: auditorName.trim(),
+        audit_date: auditDate,
+        score,
         categories,
         notes: notes.trim() || null,
-      });
+      };
+      const { error } = await supabase.from("audits").insert(payload as never);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Auditoria salva com sucesso");
       queryClient.invalidateQueries({ queryKey: ["audits"] });
       queryClient.invalidateQueries({ queryKey: ["units"] });
+      queryClient.invalidateQueries({ queryKey: ["company-units"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-owner"] });
       setOpen(false);
-      resetForm();
+      reset();
     },
-    onError: (e: any) => toast.error(e?.message ?? "Falha ao salvar"),
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao salvar"),
   });
 
   if (loading || !profile) {
@@ -163,13 +177,19 @@ function AuditsPage() {
   }
 
   return (
-    <MobileShell profile={profile} title="Auditorias" subtitle="Histórico e novas avaliações">
+    <MobileShell profile={profile} title="Auditorias" subtitle="Padrão e qualidade das unidades">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <ClipboardList size={16} /> {auditsQuery.data?.length ?? 0} registros
         </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus size={16} className="mr-1" /> Nova
+        <Button
+          size="sm"
+          onClick={() => {
+            reset();
+            setOpen(true);
+          }}
+        >
+          <Plus size={16} className="mr-1" /> Nova Auditoria
         </Button>
       </div>
 
@@ -191,21 +211,16 @@ function AuditsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{u?.name ?? "Unidade removida"}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground truncate">
                       {a.audit_date ? new Date(a.audit_date).toLocaleDateString("pt-BR") : "-"}
-                      {u?.city ? ` · ${u.city}` : ""}
+                      {a.auditor_name ? ` · ${a.auditor_name}` : ""}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge className={`${scoreColor(a.score)} text-white border-0`}>
                       {a.score}
                     </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setNotesOpen(a)}
-                      disabled={!a.notes && !a.categories}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setDetail(a)}>
                       <FileText size={14} className="mr-1" /> Ver
                     </Button>
                   </div>
@@ -216,12 +231,18 @@ function AuditsPage() {
         </div>
       )}
 
-      {/* New Audit dialog */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+      {/* New Audit */}
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) reset();
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Auditoria</DialogTitle>
-            <DialogDescription>Avalie cada categoria de 0 a 10.</DialogDescription>
+            <DialogDescription>Responda o checklist para calcular o score.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -234,52 +255,82 @@ function AuditsPage() {
                 <SelectContent>
                   {(unitsQuery.data ?? []).map((u) => (
                     <SelectItem key={u.id} value={u.id}>
-                      {u.name}{u.city ? ` — ${u.city}` : ""}
+                      {u.name}
+                      {u.city ? ` — ${u.city}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {CATEGORIES.map((c) => (
-              <div key={c.key} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>{c.label}</Label>
-                  <span className="text-sm font-semibold tabular-nums">{scores[c.key]}</span>
-                </div>
-                <Slider
-                  value={[scores[c.key]]}
-                  min={0}
-                  max={10}
-                  step={1}
-                  onValueChange={(v) => setScores((s) => ({ ...s, [c.key]: v[0] }))}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Auditor</Label>
+                <Input
+                  value={auditorName}
+                  onChange={(e) => setAuditorName(e.target.value)}
+                  placeholder="Nome do auditor"
                 />
               </div>
-            ))}
+              <div className="space-y-1.5">
+                <Label>Data</Label>
+                <Input
+                  type="date"
+                  value={auditDate}
+                  onChange={(e) => setAuditDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Checklist</Label>
+              <div className="space-y-2">
+                {QUESTIONS.map((q) => (
+                  <div
+                    key={q.key}
+                    className="flex items-center justify-between gap-3 rounded-md border p-3"
+                  >
+                    <span className="text-sm pr-2">{q.label}</span>
+                    <Switch
+                      checked={answers[q.key]}
+                      onCheckedChange={(v) =>
+                        setAnswers((a) => ({ ...a, [q.key]: v }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="space-y-1.5">
-              <Label>Observações Gerais</Label>
+              <Label>Observações (opcional)</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                placeholder="Pontos observados, recomendações, prazos..."
+                rows={3}
+                placeholder="Pontos observados, recomendações..."
               />
             </div>
 
             <Card className="p-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Score final</span>
-              <Badge className={`${scoreColor(finalScore)} text-white border-0 text-base px-3 py-1`}>
-                {finalScore} / 100
+              <span className="text-sm text-muted-foreground">
+                Score final · {scoreLabel(score)}
+              </span>
+              <Badge
+                className={`${scoreColor(score)} text-white border-0 text-base px-3 py-1`}
+              >
+                {score} / 100
               </Badge>
             </Card>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
             <Button
               onClick={() => createAudit.mutate()}
-              disabled={!unitId || createAudit.isPending}
+              disabled={!unitId || !auditorName.trim() || createAudit.isPending}
             >
               {createAudit.isPending ? "Salvando..." : "Salvar Auditoria"}
             </Button>
@@ -287,42 +338,63 @@ function AuditsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Notes viewer */}
-      <Dialog open={!!notesOpen} onOpenChange={(v) => !v && setNotesOpen(null)}>
+      {/* Detail */}
+      <Dialog open={!!detail} onOpenChange={(v) => !v && setDetail(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Detalhes da Auditoria</DialogTitle>
             <DialogDescription>
-              {notesOpen?.unit_id ? unitsById.get(notesOpen.unit_id)?.name : ""}
-              {notesOpen?.audit_date ? ` · ${new Date(notesOpen.audit_date).toLocaleDateString("pt-BR")}` : ""}
+              {detail?.unit_id ? unitsById.get(detail.unit_id)?.name : ""}
+              {detail?.audit_date
+                ? ` · ${new Date(detail.audit_date).toLocaleDateString("pt-BR")}`
+                : ""}
+              {detail?.auditor_name ? ` · ${detail.auditor_name}` : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            {notesOpen?.categories && (
+            {detail?.categories && (
               <div className="space-y-1.5">
-                {CATEGORIES.map((c) => (
-                  <div key={c.key} className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{c.label}</span>
-                    <span className="font-medium tabular-nums">
-                      {notesOpen.categories?.[c.key] ?? "-"}/10
-                    </span>
-                  </div>
-                ))}
+                {QUESTIONS.map((q) => {
+                  const val = (detail.categories as Record<string, unknown>)?.[q.key];
+                  const yes = val === true || val === "true";
+                  return (
+                    <div key={q.key} className="flex justify-between text-sm gap-3">
+                      <span className="text-muted-foreground">{q.label}</span>
+                      <span
+                        className={`font-medium shrink-0 ${
+                          yes ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {yes ? "Sim" : "Não"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
-            {notesOpen?.notes ? (
+            {detail?.notes ? (
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Observações</div>
                 <div className="text-sm whitespace-pre-wrap rounded-md border p-3 bg-muted/30">
-                  {notesOpen.notes}
+                  {detail.notes}
                 </div>
               </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">Sem observações registradas.</div>
+            ) : null}
+            {detail && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Score</span>
+                <Badge
+                  className={`${scoreColor(detail.score)} text-white border-0 text-base px-3 py-1`}
+                >
+                  {detail.score} / 100
+                </Badge>
+              </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNotesOpen(null)}>Fechar</Button>
+            <Button variant="outline" onClick={() => setDetail(null)}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
