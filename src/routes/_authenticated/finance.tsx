@@ -327,7 +327,7 @@ function FinancePage() {
                           aria-label="Excluir"
                           className="text-muted-foreground hover:text-red-600 p-1"
                           onClick={() => {
-                            if (confirm("Excluir este lançamento?")) deleteMutation.mutate(t.id);
+                            setPendingDeleteTx(t);
                           }}
                         >
                           <Trash2 size={14} />
