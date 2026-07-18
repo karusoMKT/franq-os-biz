@@ -140,6 +140,22 @@ function OwnerDashboard() {
       subtitle={isOverview ? "Visão geral da rede" : [selectedUnit?.city, selectedUnit?.state].filter(Boolean).join(" · ") || "Unidade selecionada"}
       unreadCount={data?.unread ?? 0}
     >
+      {isOverview ? (
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard loading={dataLoading} icon={<Building2 size={18} />} label="Unidades" value={String(data?.units.length ?? 0)} />
+          <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score médio" value={String(avgScore)} suffix="/10" />
+          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(totalRevenue)} />
+          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(totalProfit)} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score" value={unitScore?.score != null ? String(unitScore.score) : "—"} suffix="/10" />
+          <StatCard loading={checklistsLoading} icon={<ClipboardCheck size={18} />} label="Rotinas pendentes" value={unitChecklists ? String(unitChecklists.pending.length) : "—"} />
+          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(Number(unitFin?.total_revenue ?? 0))} />
+          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(Number(unitFin?.net_profit ?? 0))} />
+        </div>
+      )}
+
       {isOverview && (
         <Card className="p-3 space-y-2">
           <div className="flex items-center justify-between">
@@ -159,22 +175,6 @@ function OwnerDashboard() {
             <UnitsMap units={(data?.units ?? []) as any} />
           )}
         </Card>
-      )}
-
-      {isOverview ? (
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard loading={dataLoading} icon={<Building2 size={18} />} label="Unidades" value={String(data?.units.length ?? 0)} />
-          <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score médio" value={String(avgScore)} suffix="/10" />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(totalRevenue)} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(totalProfit)} />
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score" value={unitScore?.score != null ? String(unitScore.score) : "—"} suffix="/10" />
-          <StatCard loading={checklistsLoading} icon={<ClipboardCheck size={18} />} label="Rotinas pendentes" value={unitChecklists ? String(unitChecklists.pending.length) : "—"} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(Number(unitFin?.total_revenue ?? 0))} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(Number(unitFin?.net_profit ?? 0))} />
-        </div>
       )}
 
       {isOverview && (
