@@ -424,6 +424,59 @@ function FinancePage() {
           queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
         }}
       />
+      <AlertDialog
+        open={!!pendingDeleteTx}
+        onOpenChange={(v) => !v && setPendingDeleteTx(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteTx) deleteMutation.mutate(pendingDeleteTx.id);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!pendingDeleteRecurring}
+        onOpenChange={(v) => !v && setPendingDeleteRecurring(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir gasto fixo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este gasto fixo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteRecurringMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteRecurringMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteRecurring) deleteRecurringMutation.mutate(pendingDeleteRecurring.id);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteRecurringMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MobileShell>
   );
 }
