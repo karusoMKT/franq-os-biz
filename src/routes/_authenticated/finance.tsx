@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 import {
   Dialog,
   DialogContent,
@@ -524,30 +524,34 @@ function TransactionDialog({
   const [type, setType] = useState<"income" | "expense">("income");
   const [category, setCategory] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
-  const [mode, setMode] = useState<"daily" | "period">("daily");
-  const [period, setPeriod] = useState<Exclude<PeriodType, "daily">>("monthly");
-  const [date, setDate] = useState<string>(today());
-  const [month, setMonth] = useState<string>(currentMonth());
+  const [startDate, setStartDate] = useState<string>(today());
+  const [endDate, setEndDate] = useState<string>(today());
   const [description, setDescription] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   const effectiveUnitId = forcedUnitId ?? unitId;
   const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
+  function inferPeriodType(start: string | null, end: string): PeriodType {
+    if (!start || start === end) return "daily";
+    const s = new Date(start + "T00:00:00");
+    const e = new Date(end + "T00:00:00");
+    const diffDays = Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return "daily";
+    if (diffDays <= 7) return "weekly";
+    if (diffDays <= 15) return "biweekly";
+    return "monthly";
+  }
+
   async function submit() {
     if (!effectiveUnitId) return toast.error("Selecione a unidade.");
     const value = Number(amount.replace(",", "."));
     if (!value || value <= 0) return toast.error("Informe um valor válido.");
     if (!category) return toast.error("Selecione a categoria.");
+    if (!endDate) return toast.error("Informe a data final.");
+    if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
 
-    const period_type: PeriodType = mode === "daily" ? "daily" : period;
-    let refDate = date;
-    if (mode === "period" && period === "monthly") {
-      if (!month) return toast.error("Selecione o mês.");
-      refDate = `${month}-01`;
-    }
-    if (!refDate) return toast.error("Informe a data.");
-    const finalDate = adjustDateToPeriodEnd(refDate, period_type);
+    const period_type = inferPeriodType(startDate || null, endDate);
 
     setSaving(true);
     const { error } = await supabase.from("transactions").insert({
@@ -555,7 +559,9 @@ function TransactionDialog({
       type,
       category,
       amount: value,
-      date: finalDate,
+      date: endDate,
+      period_start: startDate || endDate,
+      period_end: endDate,
       description: description || null,
       period_type,
     });
@@ -569,12 +575,19 @@ function TransactionDialog({
     onOpenChange(false);
   }
 
+  const inferred = inferPeriodType(startDate || null, endDate);
+  const periodLabel =
+    inferred === "daily" ? "Dia único"
+    : inferred === "weekly" ? "Semanal"
+    : inferred === "biweekly" ? "Quinzenal"
+    : "Mensal";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Novo lançamento</DialogTitle>
-          <DialogDescription>Registre uma entrada, saída ou período.</DialogDescription>
+          <DialogDescription>Selecione o intervalo de datas do lançamento.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -610,40 +623,6 @@ function TransactionDialog({
           </div>
 
           <div className="space-y-1">
-            <Label>Tipo de Lançamento</Label>
-            <RadioGroup
-              value={mode}
-              onValueChange={(v) => setMode(v as "daily" | "period")}
-              className="flex gap-3"
-            >
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="daily" id="mode-daily" />
-                Venda do Dia
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <RadioGroupItem value="period" id="mode-period" />
-                Lançar Período
-              </label>
-            </RadioGroup>
-          </div>
-
-          {mode === "period" && (
-            <div className="space-y-1">
-              <Label>Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as any)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="biweekly">Quinzenal</SelectItem>
-                  <SelectItem value="monthly">Mensal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="space-y-1">
             <Label>Categoria</Label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
@@ -659,27 +638,42 @@ function TransactionDialog({
             </Select>
           </div>
 
+          <div className="space-y-1">
+            <Label>Valor (R$)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>Valor (R$)</Label>
+              <Label>Data inicial</Label>
               <Input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                placeholder="0,00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <Label>{mode === "period" && period === "monthly" ? "Mês" : "Data"}</Label>
-              {mode === "period" && period === "monthly" ? (
-                <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-              ) : (
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              )}
+              <Label>Data final</Label>
+              <Input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
             </div>
+          </div>
+
+          <div className="text-[11px] text-muted-foreground -mt-1">
+            Período detectado: <span className="font-medium">{periodLabel}</span>
           </div>
 
           <div className="space-y-1">
@@ -704,6 +698,7 @@ function TransactionDialog({
     </Dialog>
   );
 }
+
 
 function RecurringExpenseDialog({
   open,

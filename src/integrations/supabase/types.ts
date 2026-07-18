@@ -946,6 +946,8 @@ export type Database = {
           date: string | null
           description: string | null
           id: string
+          period_end: string | null
+          period_start: string | null
           period_type: string | null
           type: string
           unit_id: string | null
@@ -957,6 +959,8 @@ export type Database = {
           date?: string | null
           description?: string | null
           id?: string
+          period_end?: string | null
+          period_start?: string | null
           period_type?: string | null
           type: string
           unit_id?: string | null
@@ -968,6 +972,8 @@ export type Database = {
           date?: string | null
           description?: string | null
           id?: string
+          period_end?: string | null
+          period_start?: string | null
           period_type?: string | null
           type?: string
           unit_id?: string | null
