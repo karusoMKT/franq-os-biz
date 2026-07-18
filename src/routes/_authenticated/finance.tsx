@@ -651,7 +651,14 @@ function TransactionDialog({
               <SelectContent>
                 {categories.map((c) => (
                   <SelectItem key={c} value={c}>
-                    {c}
+                    {HIGHLIGHT_CATEGORIES.includes(c) && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Star size={12} className="text-amber-500 fill-amber-500" />
+                        <span className="font-medium">{c}</span>
+                        <span className="text-[10px] text-muted-foreground">(mais usado)</span>
+                      </span>
+                    )}
+                    {!HIGHLIGHT_CATEGORIES.includes(c) && c}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -671,30 +678,69 @@ function TransactionDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Data inicial</Label>
-              <Input
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Data final</Label>
-              <Input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+          <div className="space-y-1.5">
+            <Label>Modelo de lançamento</Label>
+            <div className="flex bg-muted rounded-lg p-1">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-xs py-1.5 rounded-md transition-all",
+                  mode === "single" && "bg-background shadow-sm font-medium text-foreground"
+                )}
+                onClick={() => setMode("single")}
+              >
+                Lançamento Único
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-xs py-1.5 rounded-md transition-all",
+                  mode === "period" && "bg-background shadow-sm font-medium text-foreground"
+                )}
+                onClick={() => setMode("period")}
+              >
+                Lançamento por Período
+              </button>
             </div>
           </div>
 
-          <div className="text-[11px] text-muted-foreground -mt-1">
-            Período detectado: <span className="font-medium">{periodLabel}</span>
-          </div>
+          {mode === "single" ? (
+            <div className="space-y-1">
+              <Label>Data do Lançamento</Label>
+              <Input
+                type="date"
+                value={singleDate}
+                onChange={(e) => setSingleDate(e.target.value)}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Data inicial</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Data final</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="text-[11px] text-muted-foreground -mt-1">
+                Período detectado: <span className="font-medium">{periodLabel}</span>
+              </div>
+            </>
+          )}
 
           <div className="space-y-1">
             <Label>Descrição (opcional)</Label>
