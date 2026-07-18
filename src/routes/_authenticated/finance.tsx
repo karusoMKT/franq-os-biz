@@ -197,8 +197,10 @@ function FinancePage() {
     },
     onSuccess: () => {
       toast.success("Lançamento excluído.");
+      setPendingDeleteTx(null);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao excluir."),
   });
@@ -210,8 +212,10 @@ function FinancePage() {
     },
     onSuccess: () => {
       toast.success("Gasto fixo excluído.");
+      setPendingDeleteRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["recurring-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao excluir."),
   });
