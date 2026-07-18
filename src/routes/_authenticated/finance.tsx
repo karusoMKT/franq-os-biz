@@ -553,39 +553,65 @@ function TransactionDialog({
     const value = Number(amount.replace(",", "."));
     if (!value || value <= 0) return toast.error("Informe um valor válido.");
     if (!category) return toast.error("Selecione a categoria.");
-    if (!endDate) return toast.error("Informe a data final.");
-    if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
 
-    const period_type = inferPeriodType(startDate || null, endDate);
+    const payload =
+      mode === "single"
+        ? {
+            unit_id: effectiveUnitId,
+            type,
+            category,
+            amount: value,
+            date: singleDate,
+            period_start: null,
+            period_end: null,
+            description: description || null,
+            period_type: "daily" as PeriodType,
+          }
+        : {
+            unit_id: effectiveUnitId,
+            type,
+            category,
+            amount: value,
+            date: endDate,
+            period_start: startDate || endDate,
+            period_end: endDate,
+            description: description || null,
+            period_type: inferPeriodType(startDate || null, endDate),
+          };
+
+    if (mode === "period") {
+      if (!endDate) return toast.error("Informe a data final.");
+      if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
+    } else {
+      if (!singleDate) return toast.error("Informe a data do lançamento.");
+    }
 
     setSaving(true);
-    const { error } = await supabase.from("transactions").insert({
-      unit_id: effectiveUnitId,
-      type,
-      category,
-      amount: value,
-      date: endDate,
-      period_start: startDate || endDate,
-      period_end: endDate,
-      description: description || null,
-      period_type,
-    });
+    const { error } = await supabase.from("transactions").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Lançamento registrado.");
     setAmount("");
     setDescription("");
     setCategory("");
+    setMode("single");
+    setSingleDate(today());
+    setStartDate(today());
+    setEndDate(today());
     onSaved();
     onOpenChange(false);
   }
 
-  const inferred = inferPeriodType(startDate || null, endDate);
   const periodLabel =
-    inferred === "daily" ? "Dia único"
-    : inferred === "weekly" ? "Semanal"
-    : inferred === "biweekly" ? "Quinzenal"
-    : "Mensal";
+    mode === "single"
+      ? "Dia único"
+      : inferPeriodType(startDate || null, endDate) === "daily"
+      ? "Dia único"
+      : inferPeriodType(startDate || null, endDate) === "weekly"
+      ? "Semanal"
+      : inferPeriodType(startDate || null, endDate) === "biweekly"
+      ? "Quinzenal"
+      : "Mensal";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
