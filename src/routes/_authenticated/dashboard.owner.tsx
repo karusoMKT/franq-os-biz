@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/loading";
-import { Building2, TrendingUp, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck } from "lucide-react";
+import { Building2, TrendingUp, TrendingDown, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck, Wallet, Percent } from "lucide-react";
 import { UnitsMap } from "@/components/units-map";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
@@ -95,6 +95,33 @@ function OwnerDashboard() {
     },
   });
 
+  // Transactions for financial calculations (respects unit context)
+  const unitIdsForFinance = selectedUnitId
+    ? [selectedUnitId]
+    : (data?.units ?? []).map((u: any) => u.id);
+
+  const { data: transactions, isLoading: finLoading } = useQuery({
+    enabled: unitIdsForFinance.length > 0,
+    queryKey: ["owner-dashboard-finance", companyId, selectedUnitId ?? "all", unitIdsForFinance.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("type,amount,unit_id")
+        .in("unit_id", unitIdsForFinance);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const finance = (() => {
+    const list = transactions ?? [];
+    const revenue = list.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const expense = list.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const profit = revenue - expense;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { revenue, expense, profit, margin };
+  })();
+
   if (profileError) {
     return <DashboardErrorCard title="Erro ao carregar perfil" message={profileError} />;
   }
@@ -116,8 +143,6 @@ function OwnerDashboard() {
 
   const isOverview = !selectedUnitId;
 
-  const totalRevenue = (data?.fin ?? []).reduce((s, r: any) => s + Number(r.total_revenue ?? 0), 0);
-  const totalProfit = (data?.fin ?? []).reduce((s, r: any) => s + Number(r.net_profit ?? 0), 0);
   const avgScore = data?.scores.length
     ? (data.scores.reduce((s, r: any) => s + Number(r.score ?? 0), 0) / data.scores.length).toFixed(1)
     : "—";
@@ -125,9 +150,6 @@ function OwnerDashboard() {
   // Unit-specific data
   const unitScore = selectedUnitId
     ? data?.scores.find((s: any) => s.unit_id === selectedUnitId)
-    : null;
-  const unitFin = selectedUnitId
-    ? (data?.fin ?? []).find((r: any) => r.unit_id === selectedUnitId)
     : null;
   const unitOccurrences = selectedUnitId
     ? (data?.occurrences ?? []).filter((o: any) => o.unit_id === selectedUnitId).slice(0, 5)
@@ -144,17 +166,21 @@ function OwnerDashboard() {
         <div className="grid grid-cols-2 gap-3">
           <StatCard loading={dataLoading} icon={<Building2 size={18} />} label="Unidades" value={String(data?.units.length ?? 0)} />
           <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score médio" value={String(avgScore)} suffix="/10" />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(totalRevenue)} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(totalProfit)} />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <StatCard loading={dataLoading} icon={<Target size={18} />} label="Score" value={unitScore?.score != null ? String(unitScore.score) : "—"} suffix="/10" />
           <StatCard loading={checklistsLoading} icon={<ClipboardCheck size={18} />} label="Rotinas pendentes" value={unitChecklists ? String(unitChecklists.pending.length) : "—"} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Faturamento" value={fmtBRL(Number(unitFin?.total_revenue ?? 0))} />
-          <StatCard loading={dataLoading} icon={<TrendingUp size={18} />} label="Lucro" value={fmtBRL(Number(unitFin?.net_profit ?? 0))} />
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard loading={finLoading} icon={<TrendingUp size={18} className="text-emerald-600" />} label="Faturamento" value={fmtBRL(finance.revenue)} />
+        <StatCard loading={finLoading} icon={<TrendingDown size={18} className="text-red-600" />} label="Despesas" value={fmtBRL(finance.expense)} />
+        <StatCard loading={finLoading} icon={<Wallet size={18} className="text-[color:var(--franqos-blue)]" />} label="Lucro" value={fmtBRL(finance.profit)} />
+        <StatCard loading={finLoading} icon={<Percent size={18} className="text-[color:var(--franqos-blue)]" />} label="Margem" value={`${finance.margin.toFixed(1)}%`} />
+      </div>
+
 
       {isOverview && (
         <Card className="p-3 space-y-2">

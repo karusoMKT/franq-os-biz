@@ -893,6 +893,54 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          date: string | null
+          description: string | null
+          id: string
+          type: string
+          unit_id: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          date?: string | null
+          description?: string | null
+          id?: string
+          type: string
+          unit_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          date?: string | null
+          description?: string | null
+          id?: string
+          type?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "transactions_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unit_targets: {
         Row: {
           company_id: string
