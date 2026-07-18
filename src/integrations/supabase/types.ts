@@ -747,6 +747,51 @@ export type Database = {
           },
         ]
       }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          description: string | null
+          due_day: number
+          id: string
+          unit_id: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          description?: string | null
+          due_day: number
+          id?: string
+          unit_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          due_day?: number
+          id?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenues: {
         Row: {
           amount: number
@@ -901,6 +946,7 @@ export type Database = {
           date: string | null
           description: string | null
           id: string
+          period_type: string | null
           type: string
           unit_id: string | null
         }
@@ -911,6 +957,7 @@ export type Database = {
           date?: string | null
           description?: string | null
           id?: string
+          period_type?: string | null
           type: string
           unit_id?: string | null
         }
@@ -921,6 +968,7 @@ export type Database = {
           date?: string | null
           description?: string | null
           id?: string
+          period_type?: string | null
           type?: string
           unit_id?: string | null
         }
