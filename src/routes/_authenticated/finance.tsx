@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useUnitContext } from "@/hooks/use-unit-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +77,7 @@ type RecurringExpense = {
 
 const INCOME_CATEGORIES = ["Vendas", "Faturamento", "Serviços", "Outros"];
 const EXPENSE_CATEGORIES = [
+  "Mercadoria",
   "Aluguel",
   "Folha de Pagamento",
   "Energia",
@@ -87,6 +89,7 @@ const EXPENSE_CATEGORIES = [
   "Insumos",
   "Outros",
 ];
+const HIGHLIGHT_CATEGORIES = ["Mercadoria"];
 
 export function fmtBRL(v: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
@@ -524,6 +527,8 @@ function TransactionDialog({
   const [type, setType] = useState<"income" | "expense">("income");
   const [category, setCategory] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [mode, setMode] = useState<"single" | "period">("single");
+  const [singleDate, setSingleDate] = useState<string>(today());
   const [startDate, setStartDate] = useState<string>(today());
   const [endDate, setEndDate] = useState<string>(today());
   const [description, setDescription] = useState<string>("");
@@ -548,39 +553,54 @@ function TransactionDialog({
     const value = Number(amount.replace(",", "."));
     if (!value || value <= 0) return toast.error("Informe um valor válido.");
     if (!category) return toast.error("Selecione a categoria.");
-    if (!endDate) return toast.error("Informe a data final.");
-    if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
 
-    const period_type = inferPeriodType(startDate || null, endDate);
+    if (mode === "single" && !singleDate) return toast.error("Informe a data do lançamento.");
+    if (mode === "period") {
+      if (!endDate) return toast.error("Informe a data final.");
+      if (startDate && startDate > endDate) return toast.error("Data inicial não pode ser após a final.");
+    }
 
-    setSaving(true);
-    const { error } = await supabase.from("transactions").insert({
+    const period_type: PeriodType =
+      mode === "single" ? "daily" : inferPeriodType(startDate || null, endDate);
+
+    const payload = {
       unit_id: effectiveUnitId,
       type,
       category,
       amount: value,
-      date: endDate,
-      period_start: startDate || endDate,
-      period_end: endDate,
+      date: mode === "single" ? singleDate : endDate,
+      period_start: mode === "single" ? null : startDate || endDate,
+      period_end: mode === "single" ? null : endDate,
       description: description || null,
       period_type,
-    });
+    };
+
+    setSaving(true);
+    const { error } = await supabase.from("transactions").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Lançamento registrado.");
     setAmount("");
     setDescription("");
     setCategory("");
+    setMode("single");
+    setSingleDate(today());
+    setStartDate(today());
+    setEndDate(today());
     onSaved();
     onOpenChange(false);
   }
 
-  const inferred = inferPeriodType(startDate || null, endDate);
   const periodLabel =
-    inferred === "daily" ? "Dia único"
-    : inferred === "weekly" ? "Semanal"
-    : inferred === "biweekly" ? "Quinzenal"
-    : "Mensal";
+    mode === "single"
+      ? "Dia único"
+      : inferPeriodType(startDate || null, endDate) === "daily"
+      ? "Dia único"
+      : inferPeriodType(startDate || null, endDate) === "weekly"
+      ? "Semanal"
+      : inferPeriodType(startDate || null, endDate) === "biweekly"
+      ? "Quinzenal"
+      : "Mensal";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -631,7 +651,14 @@ function TransactionDialog({
               <SelectContent>
                 {categories.map((c) => (
                   <SelectItem key={c} value={c}>
-                    {c}
+                    {HIGHLIGHT_CATEGORIES.includes(c) && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Star size={12} className="text-amber-500 fill-amber-500" />
+                        <span className="font-medium">{c}</span>
+                        <span className="text-[10px] text-muted-foreground">(mais usado)</span>
+                      </span>
+                    )}
+                    {!HIGHLIGHT_CATEGORIES.includes(c) && c}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -651,30 +678,69 @@ function TransactionDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Data inicial</Label>
-              <Input
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Data final</Label>
-              <Input
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+          <div className="space-y-1.5">
+            <Label>Modelo de lançamento</Label>
+            <div className="flex bg-muted rounded-lg p-1">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-xs py-1.5 rounded-md transition-all",
+                  mode === "single" && "bg-background shadow-sm font-medium text-foreground"
+                )}
+                onClick={() => setMode("single")}
+              >
+                Lançamento Único
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-xs py-1.5 rounded-md transition-all",
+                  mode === "period" && "bg-background shadow-sm font-medium text-foreground"
+                )}
+                onClick={() => setMode("period")}
+              >
+                Lançamento por Período
+              </button>
             </div>
           </div>
 
-          <div className="text-[11px] text-muted-foreground -mt-1">
-            Período detectado: <span className="font-medium">{periodLabel}</span>
-          </div>
+          {mode === "single" ? (
+            <div className="space-y-1">
+              <Label>Data do Lançamento</Label>
+              <Input
+                type="date"
+                value={singleDate}
+                onChange={(e) => setSingleDate(e.target.value)}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Data inicial</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    max={endDate || undefined}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Data final</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="text-[11px] text-muted-foreground -mt-1">
+                Período detectado: <span className="font-medium">{periodLabel}</span>
+              </div>
+            </>
+          )}
 
           <div className="space-y-1">
             <Label>Descrição (opcional)</Label>
