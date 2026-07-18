@@ -130,7 +130,7 @@ function AuditsPage() {
 
   const reset = () => {
     setUnitId("");
-    setAuditorName(profile?.full_name ?? "");
+    setAuditorName("");
     setAuditDate(today());
     setAnswers(emptyAnswers());
     setNotes("");
