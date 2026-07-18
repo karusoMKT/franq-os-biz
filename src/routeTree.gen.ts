@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_authenticated/daily-checklists'
 import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
@@ -78,6 +79,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/checklists': typeof AuthenticatedChecklistsRoute
   '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/finance': typeof AuthenticatedFinanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/audits': typeof AuthenticatedAuditsRoute
   '/checklists': typeof AuthenticatedChecklistsRoute
   '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
+  '/finance': typeof AuthenticatedFinanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -174,6 +182,7 @@ export interface FileRoutesById {
   '/_authenticated/checklists': typeof AuthenticatedChecklistsRoute
   '/_authenticated/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/_authenticated/finance': typeof AuthenticatedFinanceRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pops': typeof AuthenticatedPopsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/checklists'
     | '/daily-checklists'
     | '/dashboard'
+    | '/finance'
     | '/notifications'
     | '/pops'
     | '/profile'
@@ -213,6 +223,7 @@ export interface FileRouteTypes {
     | '/audits'
     | '/checklists'
     | '/daily-checklists'
+    | '/finance'
     | '/notifications'
     | '/pops'
     | '/profile'
@@ -233,6 +244,7 @@ export interface FileRouteTypes {
     | '/_authenticated/checklists'
     | '/_authenticated/daily-checklists'
     | '/_authenticated/dashboard'
+    | '/_authenticated/finance'
     | '/_authenticated/notifications'
     | '/_authenticated/pops'
     | '/_authenticated/profile'
@@ -324,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance': {
+      id: '/_authenticated/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -408,6 +427,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChecklistsRoute: typeof AuthenticatedChecklistsRoute
   AuthenticatedDailyChecklistsRoute: typeof AuthenticatedDailyChecklistsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPopsRoute: typeof AuthenticatedPopsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -418,6 +438,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChecklistsRoute: AuthenticatedChecklistsRoute,
   AuthenticatedDailyChecklistsRoute: AuthenticatedDailyChecklistsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+  AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPopsRoute: AuthenticatedPopsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
