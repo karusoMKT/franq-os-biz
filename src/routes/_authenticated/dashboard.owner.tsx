@@ -100,23 +100,35 @@ function OwnerDashboard() {
     ? [selectedUnitId]
     : (data?.units ?? []).map((u: any) => u.id);
 
-  const { data: transactions, isLoading: finLoading } = useQuery({
+  const { data: financeData, isLoading: finLoading } = useQuery({
     enabled: unitIdsForFinance.length > 0,
     queryKey: ["owner-dashboard-finance", companyId, selectedUnitId ?? "all", unitIdsForFinance.length],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("type,amount,unit_id")
-        .in("unit_id", unitIdsForFinance);
-      if (error) throw error;
-      return data ?? [];
+      const [tx, rec] = await Promise.all([
+        supabase.from("transactions").select("type,amount,unit_id,date,category").in("unit_id", unitIdsForFinance),
+        supabase.from("recurring_expenses").select("unit_id,amount,category").in("unit_id", unitIdsForFinance),
+      ]);
+      if (tx.error) throw tx.error;
+      if (rec.error) throw rec.error;
+      return { tx: tx.data ?? [], recurring: rec.data ?? [] };
     },
   });
 
   const finance = (() => {
-    const list = transactions ?? [];
+    const list = financeData?.tx ?? [];
+    const recurring = financeData?.recurring ?? [];
     const revenue = list.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const expense = list.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const expenseManual = list.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthExpenseKeys = new Set(
+      list
+        .filter((t: any) => t.type === "expense" && typeof t.date === "string" && t.date.slice(0, 7) === currentMonth)
+        .map((t: any) => `${t.unit_id ?? ""}::${t.category}`),
+    );
+    const recurringMonth = recurring
+      .filter((r: any) => !monthExpenseKeys.has(`${r.unit_id ?? ""}::${r.category}`))
+      .reduce((s: number, r: any) => s + Number(r.amount), 0);
+    const expense = expenseManual + recurringMonth;
     const profit = revenue - expense;
     const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
     return { revenue, expense, profit, margin };
