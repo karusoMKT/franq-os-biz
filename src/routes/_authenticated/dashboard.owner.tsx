@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/loading";
-import { Building2, TrendingUp, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck } from "lucide-react";
+import { Building2, TrendingUp, TrendingDown, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck, Wallet, Percent } from "lucide-react";
 import { UnitsMap } from "@/components/units-map";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
