@@ -580,7 +580,7 @@ function DailyChecklistsPage() {
           onClick={() => seedMutation.mutate()}
         >
           <Sparkles size={14} />
-          Carregar Padrões da Franquia
+          Redefinir Padrões da Franquia
         </Button>
       )}
 
