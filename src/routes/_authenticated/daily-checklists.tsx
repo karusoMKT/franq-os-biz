@@ -407,16 +407,17 @@ function DailyChecklistsPage() {
   const seedMutation = useMutation({
     mutationFn: async () => {
       if (!companyId) throw new Error("Empresa não encontrada");
-      const existingTitles = new Set((checklists ?? []).map((c) => c.title.toLowerCase()));
-      const toCreate = FRANCHISE_DEFAULTS.filter(
-        (f) => !existingTitles.has(f.title.toLowerCase()),
-      );
-      if (!toCreate.length) return { created: 0 };
+      // Full reset: wipe all existing checklists for this company (cascades to items + executions)
+      const { error: delErr } = await supabase
+        .from("checklists")
+        .delete()
+        .eq("company_id", companyId);
+      if (delErr) throw delErr;
 
       const { data: created, error } = await supabase
         .from("checklists")
         .insert(
-          toCreate.map((f) => ({
+          FRANCHISE_DEFAULTS.map((f) => ({
             company_id: companyId,
             title: f.title,
             category: f.category,
@@ -428,7 +429,7 @@ function DailyChecklistsPage() {
 
       const itemsPayload: any[] = [];
       (created ?? []).forEach((c: any) => {
-        const def = toCreate.find((f) => f.title === c.title);
+        const def = FRANCHISE_DEFAULTS.find((f) => f.title === c.title);
         def?.items.forEach((it) => {
           itemsPayload.push({
             checklist_id: c.id,
@@ -442,15 +443,16 @@ function DailyChecklistsPage() {
         const { error: itemsErr } = await supabase.from("checklist_items").insert(itemsPayload);
         if (itemsErr) throw itemsErr;
       }
-      return { created: toCreate.length };
+      return { created: FRANCHISE_DEFAULTS.length };
     },
     onSuccess: (r) => {
-      if (r.created === 0) toast.info("Padrões já estavam carregados.");
-      else toast.success(`${r.created} rotina(s) padrão criada(s).`);
+      toast.success(`Rotinas redefinidas (${r.created}).`);
       queryClient.invalidateQueries({ queryKey: checklistsKey });
+      queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] });
     },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao carregar padrões"),
+    onError: (e: any) => toast.error(e.message ?? "Erro ao redefinir padrões"),
   });
+
 
   const execByChecklist = useMemo(() => {
     const map = new Map<string, Execution>();
