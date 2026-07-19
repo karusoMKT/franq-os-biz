@@ -262,10 +262,9 @@ function DailyChecklistsPage() {
       const { data, error } = await supabase
         .from("checklists")
         .select("id,title,category,is_critical,checklist_items(id,question,required,response_type)")
-        .order("is_critical", { ascending: false })
-        .order("title");
+        .eq("company_id", companyId!);
       if (error) throw error;
-      return (data ?? []).map((c: any) => ({
+      const list = (data ?? []).map((c: any) => ({
         id: c.id,
         title: c.title,
         category: c.category,
@@ -277,8 +276,11 @@ function DailyChecklistsPage() {
           response_type: (it.response_type ?? "boolean") as ResponseType,
         })) as ChecklistItem[],
       })) as Checklist[];
+      list.sort((a, b) => canonicalIndex(a.title) - canonicalIndex(b.title));
+      return list;
     },
   });
+
 
   const { data: todaysExecs, isLoading: loadingExecs } = useQuery({
     enabled: !!unitId,
