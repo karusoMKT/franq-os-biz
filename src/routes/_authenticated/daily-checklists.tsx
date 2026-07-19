@@ -233,6 +233,8 @@ function DailyChecklistsPage() {
   const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [manageId, setManageId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newChecklistName, setNewChecklistName] = useState("");
 
   const companyId = profile?.company_id ?? null;
   const unitId = profile?.role === "owner" ? selectedUnitId : profile?.unit_id ?? null;
