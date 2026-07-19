@@ -135,6 +135,7 @@ export type Database = {
       }
       checklist_executions: {
         Row: {
+          answers_data: Json | null
           checked_items: Json
           checklist_id: string
           completed_at: string | null
@@ -148,6 +149,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          answers_data?: Json | null
           checked_items?: Json
           checklist_id: string
           completed_at?: string | null
@@ -161,6 +163,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          answers_data?: Json | null
           checked_items?: Json
           checklist_id?: string
           completed_at?: string | null
@@ -204,6 +207,7 @@ export type Database = {
           id: string
           question: string
           required: boolean
+          response_type: string | null
         }
         Insert: {
           checklist_id: string
@@ -211,6 +215,7 @@ export type Database = {
           id?: string
           question: string
           required?: boolean
+          response_type?: string | null
         }
         Update: {
           checklist_id?: string
@@ -218,6 +223,7 @@ export type Database = {
           id?: string
           question?: string
           required?: boolean
+          response_type?: string | null
         }
         Relationships: [
           {
