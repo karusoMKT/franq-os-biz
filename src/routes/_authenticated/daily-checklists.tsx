@@ -11,7 +11,6 @@ import {
   Settings2,
   Trash2,
   Plus,
-  Sparkles,
   Camera,
   Loader2,
   Save,
