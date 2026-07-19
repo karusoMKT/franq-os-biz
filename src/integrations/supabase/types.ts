@@ -1065,11 +1065,13 @@ export type Database = {
           city: string | null
           company_id: string
           created_at: string
+          freezer_count: number | null
           health_score: number | null
           id: string
           latitude: number | null
           longitude: number | null
           name: string
+          pdv_count: number | null
           score: number | null
           state: string | null
           status: Database["public"]["Enums"]["unit_status"]
@@ -1079,11 +1081,13 @@ export type Database = {
           city?: string | null
           company_id: string
           created_at?: string
+          freezer_count?: number | null
           health_score?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           name: string
+          pdv_count?: number | null
           score?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["unit_status"]
@@ -1093,11 +1097,13 @@ export type Database = {
           city?: string | null
           company_id?: string
           created_at?: string
+          freezer_count?: number | null
           health_score?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           name?: string
+          pdv_count?: number | null
           score?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["unit_status"]

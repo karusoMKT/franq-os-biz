@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -12,6 +12,9 @@ import {
   Trash2,
   Plus,
   Sparkles,
+  Camera,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,7 +53,16 @@ export const Route = createFileRoute("/_authenticated/daily-checklists")({
   ),
 });
 
-type ResponseType = "boolean" | "money" | "freezer_grid";
+type ResponseType =
+  | "boolean"
+  | "pdv_opening"
+  | "pdv_closing"
+  | "freezer_temperatures"
+  | "photo_upload"
+  // legacy
+  | "money"
+  | "freezer_grid";
+
 type ChecklistItem = {
   id: string;
   question: string;
@@ -64,10 +76,21 @@ type Checklist = {
   is_critical: boolean;
   items: ChecklistItem[];
 };
-type AnswersData = Record<
-  string,
-  boolean | number | { count: number; temps: (string | number)[] } | null
->;
+type PdvOpeningAns = { values: (string | number)[] };
+type PdvClosingAns = { confirmed: boolean[] };
+type FreezerTempsAns = { temps: (string | number)[] };
+type PhotoAns = { url: string; path: string };
+type AnswerValue =
+  | boolean
+  | number
+  | PdvOpeningAns
+  | PdvClosingAns
+  | FreezerTempsAns
+  | PhotoAns
+  | { count: number; temps: (string | number)[] } // legacy freezer_grid
+  | null;
+type AnswersData = Record<string, AnswerValue>;
+
 type Execution = {
   id: string;
   checklist_id: string;
@@ -78,6 +101,13 @@ type Execution = {
   answers_data: AnswersData;
   execution_date: string;
   completed_at: string | null;
+};
+
+type UnitConfig = {
+  id: string;
+  name: string;
+  pdv_count: number | null;
+  freezer_count: number | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -92,8 +122,8 @@ const FRANCHISE_DEFAULTS: {
     title: "Abertura",
     category: "Operação",
     items: [
-      { question: "Ligar PDVs", response_type: "boolean" },
-      { question: "Abrir caixa e valor de abertura", response_type: "money" },
+      { question: "Abrir os PDVs", response_type: "pdv_opening" },
+      { question: "Ligar as luzes", response_type: "boolean" },
     ],
   },
   {
@@ -101,27 +131,27 @@ const FRANCHISE_DEFAULTS: {
     category: "Qualidade",
     is_critical: true,
     items: [
-      { question: "Conferir temperaturas", response_type: "freezer_grid" },
-      { question: "Secagem dos freezers", response_type: "boolean" },
+      { question: "Conferir temperaturas", response_type: "freezer_temperatures" },
       { question: "Raspagem dos freezers", response_type: "boolean" },
+      { question: "Secagem dos freezers", response_type: "boolean" },
     ],
   },
   {
     title: "Limpeza",
     category: "Higiene",
     items: [
+      { question: "Limpeza de frente de loja", response_type: "boolean" },
       { question: "Limpeza de loja", response_type: "boolean" },
       { question: "Limpeza de PDVs", response_type: "boolean" },
-      { question: "Limpeza de freezers", response_type: "boolean" },
-      { question: "Limpeza e organização de estoque", response_type: "boolean" },
+      { question: "Limpeza de estoque", response_type: "boolean" },
     ],
   },
   {
     title: "Recebimento de Mercadoria",
     category: "Estoque",
     items: [
-      { question: "Conferência de notas", response_type: "boolean" },
-      { question: "Organização de produtos em estoque", response_type: "boolean" },
+      { question: "Conferência de nota", response_type: "photo_upload" },
+      { question: "Organização de produtos no estoque", response_type: "boolean" },
       { question: "Abertura de produtos novos", response_type: "boolean" },
     ],
   },
@@ -129,30 +159,63 @@ const FRANCHISE_DEFAULTS: {
     title: "Fechamento",
     category: "Operação",
     items: [
-      { question: "Fechar PDVs", response_type: "boolean" },
-      { question: "Desligar luzes", response_type: "boolean" },
+      { question: "Fechar Caixas", response_type: "pdv_closing" },
       { question: "Desligar computadores e eletrônicos", response_type: "boolean" },
+      { question: "Desligar luzes", response_type: "boolean" },
     ],
   },
 ];
 
-function isAnswered(item: ChecklistItem, answers: AnswersData, legacy: Record<string, boolean>) {
+function isAnswered(
+  item: ChecklistItem,
+  answers: AnswersData,
+  legacy: Record<string, boolean>,
+  unit: UnitConfig | null,
+) {
   const v = answers?.[item.id];
-  if (item.response_type === "boolean") {
-    if (typeof v === "boolean") return v;
-    return !!legacy?.[item.id];
-  }
-  if (item.response_type === "money") {
-    return typeof v === "number" && !Number.isNaN(v);
-  }
-  if (item.response_type === "freezer_grid") {
-    if (!v || typeof v !== "object") return false;
-    const grid = v as { count: number; temps: (string | number)[] };
-    return (
-      grid.count > 0 &&
-      grid.temps.length === grid.count &&
-      grid.temps.every((t) => t !== "" && t !== null && t !== undefined)
-    );
+  switch (item.response_type) {
+    case "boolean":
+      if (typeof v === "boolean") return v;
+      return !!legacy?.[item.id];
+    case "money":
+      return typeof v === "number" && !Number.isNaN(v);
+    case "pdv_opening": {
+      const n = unit?.pdv_count ?? 0;
+      if (n <= 0) return false;
+      const ans = (v as PdvOpeningAns) ?? { values: [] };
+      return (
+        ans.values.length === n &&
+        ans.values.every((x) => x !== "" && x !== null && x !== undefined && !Number.isNaN(Number(x)))
+      );
+    }
+    case "pdv_closing": {
+      const n = unit?.pdv_count ?? 0;
+      if (n <= 0) return false;
+      const ans = (v as PdvClosingAns) ?? { confirmed: [] };
+      return ans.confirmed.length === n && ans.confirmed.every(Boolean);
+    }
+    case "freezer_temperatures": {
+      const n = unit?.freezer_count ?? 0;
+      if (n <= 0) return false;
+      const ans = (v as FreezerTempsAns) ?? { temps: [] };
+      return (
+        ans.temps.length === n &&
+        ans.temps.every((t) => t !== "" && t !== null && t !== undefined)
+      );
+    }
+    case "photo_upload": {
+      const ans = v as PhotoAns | null;
+      return !!ans && typeof ans.url === "string" && ans.url.length > 0;
+    }
+    case "freezer_grid": {
+      if (!v || typeof v !== "object") return false;
+      const grid = v as { count: number; temps: (string | number)[] };
+      return (
+        grid.count > 0 &&
+        grid.temps.length === grid.count &&
+        grid.temps.every((t) => t !== "" && t !== null && t !== undefined)
+      );
+    }
   }
   return false;
 }
@@ -169,6 +232,21 @@ function DailyChecklistsPage() {
   const canManage = profile?.role === "owner" || profile?.role === "manager";
 
   const checklistsKey = ["daily-checklists", companyId] as const;
+  const unitKey = ["unit-config", unitId] as const;
+
+  const { data: unit } = useQuery({
+    enabled: !!unitId,
+    queryKey: unitKey,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("units")
+        .select("id,name,pdv_count,freezer_count")
+        .eq("id", unitId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as UnitConfig | null;
+    },
+  });
 
   const { data: checklists, isLoading: loadingLists } = useQuery({
     enabled: !!companyId,
@@ -253,7 +331,7 @@ function DailyChecklistsPage() {
     mutationFn: async (args: {
       exec: Execution;
       itemId: string;
-      value: AnswersData[string];
+      value: AnswerValue;
       alsoChecked?: boolean;
     }) => {
       const nextAnswers = { ...(args.exec.answers_data ?? {}), [args.itemId]: args.value };
@@ -403,7 +481,7 @@ function DailyChecklistsPage() {
     const locked = activeExec.status === "completed";
     const total = activeChecklist.items.length;
     const done = activeChecklist.items.filter((i) =>
-      isAnswered(i, activeExec.answers_data, activeExec.checked_items),
+      isAnswered(i, activeExec.answers_data, activeExec.checked_items, unit ?? null),
     ).length;
 
     return (
@@ -434,6 +512,7 @@ function DailyChecklistsPage() {
                   <AnswerRow
                     item={item}
                     exec={activeExec}
+                    unit={unit ?? null}
                     locked={locked || answerMutation.isPending}
                     onAnswer={(value, alsoChecked) =>
                       answerMutation.mutate({ exec: activeExec, itemId: item.id, value, alsoChecked })
@@ -472,6 +551,15 @@ function DailyChecklistsPage() {
 
   return (
     <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
+      {canManage && unit && (
+        <UnitConfigCard
+          unit={unit}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: unitKey });
+          }}
+        />
+      )}
+
       {canManage && (
         <Button
           variant="outline"
@@ -501,7 +589,7 @@ function DailyChecklistsPage() {
             const exec = execByChecklist.get(c.id);
             const total = c.items.length;
             const done = exec
-              ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items)).length
+              ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items, unit ?? null)).length
               : 0;
             const completed = exec?.status === "completed";
             return (
@@ -566,16 +654,89 @@ function DailyChecklistsPage() {
   );
 }
 
+function UnitConfigCard({
+  unit,
+  onSaved,
+}: {
+  unit: UnitConfig;
+  onSaved: () => void;
+}) {
+  const [pdv, setPdv] = useState<string>(String(unit.pdv_count ?? ""));
+  const [freezer, setFreezer] = useState<string>(String(unit.freezer_count ?? ""));
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const pdvN = Math.max(0, Math.min(50, parseInt(pdv, 10) || 0));
+      const frzN = Math.max(0, Math.min(50, parseInt(freezer, 10) || 0));
+      const { error } = await supabase
+        .from("units")
+        .update({ pdv_count: pdvN, freezer_count: frzN })
+        .eq("id", unit.id);
+      if (error) throw error;
+      return { pdvN, frzN };
+    },
+    onSuccess: () => {
+      toast.success("Configuração da unidade atualizada");
+      onSaved();
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao salvar"),
+  });
+
+  const dirty =
+    String(unit.pdv_count ?? "") !== pdv || String(unit.freezer_count ?? "") !== freezer;
+
+  return (
+    <Card className="p-3 space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">
+        Configuração da unidade — {unit.name}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <Label className="text-[11px]">Qtd. PDVs</Label>
+          <Input
+            type="number"
+            min="0"
+            max="50"
+            value={pdv}
+            onChange={(e) => setPdv(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-[11px]">Qtd. Freezers</Label>
+          <Input
+            type="number"
+            min="0"
+            max="50"
+            value={freezer}
+            onChange={(e) => setFreezer(e.target.value)}
+          />
+        </div>
+      </div>
+      <Button
+        size="sm"
+        className="w-full"
+        disabled={!dirty || save.isPending}
+        onClick={() => save.mutate()}
+      >
+        <Save size={14} className="mr-1.5" />
+        Salvar configuração
+      </Button>
+    </Card>
+  );
+}
+
 function AnswerRow({
   item,
   exec,
+  unit,
   locked,
   onAnswer,
 }: {
   item: ChecklistItem;
   exec: Execution;
+  unit: UnitConfig | null;
   locked: boolean;
-  onAnswer: (value: AnswersData[string], alsoChecked?: boolean) => void;
+  onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
 }) {
   const current = exec.answers_data?.[item.id];
 
@@ -606,7 +767,159 @@ function AnswerRow({
     );
   }
 
+  if (item.response_type === "pdv_opening" || item.response_type === "pdv_closing") {
+    const n = unit?.pdv_count ?? 0;
+    const isOpening = item.response_type === "pdv_opening";
+    const ans = isOpening
+      ? ((current as PdvOpeningAns) ?? { values: [] })
+      : ((current as PdvClosingAns) ?? { confirmed: [] });
+
+    if (n <= 0) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-sm">{item.question}</Label>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+            Configure a "Quantidade de PDVs" da unidade para preencher este item.
+          </div>
+        </div>
+      );
+    }
+
+    // Show as a checkbox that expands to N inputs
+    const anyFilled = isOpening
+      ? (ans as PdvOpeningAns).values.some((v) => v !== "" && v !== null && v !== undefined)
+      : (ans as PdvClosingAns).confirmed.some(Boolean);
+
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            checked={anyFilled}
+            disabled={locked}
+            className="mt-0.5"
+            onCheckedChange={(v) => {
+              if (v && !anyFilled) {
+                if (isOpening) onAnswer({ values: Array.from({ length: n }, () => "") });
+                else onAnswer({ confirmed: Array.from({ length: n }, () => false) });
+              } else if (!v) {
+                if (isOpening) onAnswer({ values: [] });
+                else onAnswer({ confirmed: [] });
+              }
+            }}
+          />
+          <span className="text-sm">{item.question}</span>
+        </div>
+
+        {anyFilled && isOpening && (
+          <div className="grid grid-cols-2 gap-2 pl-7">
+            {Array.from({ length: n }).map((_, i) => {
+              const values = (ans as PdvOpeningAns).values;
+              return (
+                <div key={i} className="flex flex-col gap-1">
+                  <span className="text-[10px] text-muted-foreground">PDV {i + 1} — abertura (R$)</span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder="0,00"
+                    disabled={locked}
+                    defaultValue={values[i] ?? ""}
+                    onBlur={(e) => {
+                      const next = [...values];
+                      next[i] = e.target.value;
+                      onAnswer({ values: next });
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {anyFilled && !isOpening && (
+          <div className="grid grid-cols-2 gap-2 pl-7">
+            {Array.from({ length: n }).map((_, i) => {
+              const confirmed = (ans as PdvClosingAns).confirmed;
+              return (
+                <label key={i} className="flex items-center gap-2 text-xs">
+                  <Checkbox
+                    checked={!!confirmed[i]}
+                    disabled={locked}
+                    onCheckedChange={(v) => {
+                      const next = [...confirmed];
+                      next[i] = !!v;
+                      onAnswer({ confirmed: next });
+                    }}
+                  />
+                  <span>PDV {i + 1} fechado</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (item.response_type === "freezer_temperatures") {
+    const n = unit?.freezer_count ?? 0;
+    const ans = (current as FreezerTempsAns) ?? { temps: [] };
+
+    if (n <= 0) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-sm">{item.question}</Label>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+            Configure a "Quantidade de Freezers" da unidade para preencher este item.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm">{item.question}</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: n }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
+              <Input
+                type="number"
+                step="0.1"
+                inputMode="decimal"
+                placeholder="°C"
+                disabled={locked}
+                defaultValue={ans.temps[i] ?? ""}
+                onBlur={(e) => {
+                  const temps = Array.from({ length: n }, (_, j) =>
+                    j === i ? e.target.value : ans.temps[j] ?? "",
+                  );
+                  onAnswer({ temps });
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (item.response_type === "photo_upload") {
+    return (
+      <PhotoUploadRow
+        item={item}
+        current={(current as PhotoAns | null) ?? null}
+        locked={locked}
+        onAnswer={onAnswer}
+        unitId={exec.unit_id}
+        execId={exec.id}
+      />
+    );
+  }
+
   if (item.response_type === "freezer_grid") {
+    // legacy
     const grid =
       current && typeof current === "object"
         ? (current as { count: number; temps: (string | number)[] })
@@ -676,6 +989,113 @@ function AnswerRow({
   );
 }
 
+function PhotoUploadRow({
+  item,
+  current,
+  locked,
+  onAnswer,
+  unitId,
+  execId,
+}: {
+  item: ChecklistItem;
+  current: PhotoAns | null;
+  locked: boolean;
+  onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
+  unitId: string;
+  execId: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Envie apenas imagens.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${unitId}/${execId}/${item.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("invoices")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("invoices").getPublicUrl(path);
+      onAnswer({ url: data.publicUrl, path });
+      toast.success("Foto enviada");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao enviar foto");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="text-sm">{item.question}</Label>
+      {current?.url ? (
+        <div className="flex items-start gap-3">
+          <a href={current.url} target="_blank" rel="noreferrer" className="shrink-0">
+            <img
+              src={current.url}
+              alt={item.question}
+              className="h-20 w-20 object-cover rounded-md border"
+            />
+          </a>
+          <div className="flex-1 flex flex-col gap-1">
+            <span className="text-xs text-green-700 flex items-center gap-1">
+              <CheckCircle2 size={14} /> Foto enviada
+            </span>
+            {!locked && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Camera size={14} className="mr-1" />}
+                Substituir
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-fit"
+          disabled={uploading || locked}
+          onClick={() => fileRef.current?.click()}
+        >
+          {uploading ? (
+            <>
+              <Loader2 size={14} className="animate-spin mr-1.5" /> Enviando...
+            </>
+          ) : (
+            <>
+              <Camera size={14} className="mr-1.5" /> Tirar / enviar foto
+            </>
+          )}
+        </Button>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 function ManageItemsDialog({
   checklist,
   open,
@@ -733,7 +1153,11 @@ function ManageItemsDialog({
   const typeLabel: Record<ResponseType, string> = {
     boolean: "Sim/Não",
     money: "Valor (R$)",
-    freezer_grid: "Grade de freezers",
+    freezer_grid: "Grade freezers (legado)",
+    pdv_opening: "Abertura de PDVs",
+    pdv_closing: "Fechamento de PDVs",
+    freezer_temperatures: "Temperaturas dos freezers",
+    photo_upload: "Envio de foto",
   };
 
   return (
@@ -746,33 +1170,39 @@ function ManageItemsDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              placeholder="Nova pergunta..."
-              value={newQuestion}
-              onChange={(e) => setNewQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              disabled={addMutation.isPending}
-            />
-            <Select value={newType} onValueChange={(v) => setNewType(v as ResponseType)}>
-              <SelectTrigger className="sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="boolean">Sim/Não</SelectItem>
-                <SelectItem value="money">Valor (R$)</SelectItem>
-                <SelectItem value="freezer_grid">Grade freezers</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={submit} disabled={addMutation.isPending || !newQuestion.trim()}>
-              <Plus size={16} className="mr-1" />
-              Adicionar
-            </Button>
+          <div className="rounded-md border border-dashed p-3 space-y-2 bg-slate-50">
+            <div className="text-xs font-medium">Adicionar novo item</div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                placeholder="Nova pergunta..."
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+                disabled={addMutation.isPending}
+              />
+              <Select value={newType} onValueChange={(v) => setNewType(v as ResponseType)}>
+                <SelectTrigger className="sm:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="boolean">Sim/Não</SelectItem>
+                  <SelectItem value="pdv_opening">Abertura de PDVs</SelectItem>
+                  <SelectItem value="pdv_closing">Fechamento de PDVs</SelectItem>
+                  <SelectItem value="freezer_temperatures">Temperaturas dos freezers</SelectItem>
+                  <SelectItem value="photo_upload">Envio de foto</SelectItem>
+                  <SelectItem value="money">Valor (R$)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={submit} disabled={addMutation.isPending || !newQuestion.trim()}>
+                <Plus size={16} className="mr-1" />
+                Adicionar
+              </Button>
+            </div>
           </div>
 
           <div className="border rounded-md max-h-[50vh] overflow-y-auto">
@@ -788,7 +1218,7 @@ function ManageItemsDialog({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm">{item.question}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {typeLabel[item.response_type]}
+                        {typeLabel[item.response_type] ?? item.response_type}
                       </div>
                     </div>
                     <Button
