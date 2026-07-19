@@ -1059,6 +1059,7 @@ export type Database = {
           city: string | null
           company_id: string
           created_at: string
+          health_score: number | null
           id: string
           latitude: number | null
           longitude: number | null
@@ -1072,6 +1073,7 @@ export type Database = {
           city?: string | null
           company_id: string
           created_at?: string
+          health_score?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -1085,6 +1087,7 @@ export type Database = {
           city?: string | null
           company_id?: string
           created_at?: string
+          health_score?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
