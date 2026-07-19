@@ -113,12 +113,17 @@ function DailyChecklistsPage() {
       );
       if (existing) return existing;
 
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
       const { data, error } = await supabase
         .from("checklist_executions")
         .insert({
           checklist_id: checklist.id,
           unit_id: unitId,
-          user_id: profile?.id ?? null,
+          user_id: authData.user.id,
           status: "in_progress",
           checked_items: {},
           execution_date: today(),
