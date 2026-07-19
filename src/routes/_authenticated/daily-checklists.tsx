@@ -552,14 +552,12 @@ function DailyChecklistsPage() {
 
       {canManage && (
         <Button
-          variant="outline"
           size="sm"
           className="w-fit gap-1.5"
-          disabled={seedMutation.isPending}
-          onClick={() => seedMutation.mutate()}
+          onClick={() => setCreateOpen(true)}
         >
-          <Sparkles size={14} />
-          Redefinir Padrões da Franquia
+          <Plus size={14} />
+          Criar Nova Rotina
         </Button>
       )}
 
