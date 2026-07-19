@@ -638,6 +638,38 @@ function DailyChecklistsPage() {
         onOpenChange={(v) => !v && setManageId(null)}
         onChanged={() => queryClient.invalidateQueries({ queryKey: checklistsKey })}
       />
+
+      <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setNewChecklistName(""); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Criar Nova Rotina</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Nome da Rotina</Label>
+            <Input
+              placeholder="Ex: Manutenção Mensal"
+              value={newChecklistName}
+              onChange={(e) => setNewChecklistName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newChecklistName.trim()) {
+                  e.preventDefault();
+                  createChecklistMutation.mutate(newChecklistName.trim());
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={!newChecklistName.trim() || createChecklistMutation.isPending}
+              onClick={() => createChecklistMutation.mutate(newChecklistName.trim())}
+            >
+              Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MobileShell>
   );
 }
