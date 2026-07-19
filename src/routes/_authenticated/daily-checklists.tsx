@@ -127,7 +127,7 @@ const FRANCHISE_DEFAULTS: {
     ],
   },
   {
-    title: "Cuidados com o freezer",
+    title: "Cuidados com o Freezers",
     category: "Qualidade",
     is_critical: true,
     items: [
@@ -150,7 +150,7 @@ const FRANCHISE_DEFAULTS: {
     title: "Recebimento de Mercadoria",
     category: "Estoque",
     items: [
-      { question: "Conferência de nota", response_type: "photo_upload" },
+      { question: "Conferencia de nota", response_type: "photo_upload" },
       { question: "Organização de produtos no estoque", response_type: "boolean" },
       { question: "Abertura de produtos novos", response_type: "boolean" },
     ],
@@ -160,11 +160,18 @@ const FRANCHISE_DEFAULTS: {
     category: "Operação",
     items: [
       { question: "Fechar Caixas", response_type: "pdv_closing" },
-      { question: "Desligar computadores e eletrônicos", response_type: "boolean" },
+      { question: "Desligar computadores e eletronicos", response_type: "boolean" },
       { question: "Desligar luzes", response_type: "boolean" },
     ],
   },
 ];
+
+const CANONICAL_ORDER: string[] = FRANCHISE_DEFAULTS.map((f) => f.title);
+const canonicalIndex = (title: string) => {
+  const i = CANONICAL_ORDER.indexOf(title);
+  return i === -1 ? 999 : i;
+};
+
 
 function isAnswered(
   item: ChecklistItem,
