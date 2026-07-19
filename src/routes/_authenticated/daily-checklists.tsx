@@ -2,7 +2,16 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ClipboardCheck, CheckCircle2, Lock, ArrowLeft, AlertTriangle } from "lucide-react";
+import {
+  ClipboardCheck,
+  CheckCircle2,
+  Lock,
+  ArrowLeft,
+  AlertTriangle,
+  Settings2,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { MobileShell } from "@/components/mobile-shell";
@@ -12,6 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
@@ -24,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/daily-checklists")({
   ),
 });
 
-type ChecklistItem = { id: string; text: string };
+type ChecklistItem = { id: string; question: string; required: boolean };
 type Checklist = {
   id: string;
   title: string;
@@ -43,25 +60,6 @@ type Execution = {
   completed_at: string | null;
 };
 
-const uid = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
-
-function normalizeItems(raw: unknown): ChecklistItem[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((it) => {
-      if (typeof it === "string") return { id: uid(), text: it };
-      if (it && typeof it === "object") {
-        const text = (it as any).text ?? (it as any).label ?? "";
-        return { id: (it as any).id ?? uid(), text: String(text) };
-      }
-      return null;
-    })
-    .filter((x): x is ChecklistItem => !!x && x.text.trim() !== "");
-}
-
 const today = () => new Date().toISOString().slice(0, 10);
 
 function DailyChecklistsPage() {
@@ -69,24 +67,34 @@ function DailyChecklistsPage() {
   const queryClient = useQueryClient();
   const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [manageId, setManageId] = useState<string | null>(null);
 
   const companyId = profile?.company_id ?? null;
-  // Owners: use the switcher context; other roles: locked to their unit
   const unitId = profile?.role === "owner" ? selectedUnitId : profile?.unit_id ?? null;
+  const canManage = profile?.role === "owner" || profile?.role === "manager";
+
+  const checklistsKey = ["daily-checklists", companyId] as const;
 
   const { data: checklists, isLoading: loadingLists } = useQuery({
     enabled: !!companyId,
-    queryKey: ["daily-checklists", companyId],
+    queryKey: checklistsKey,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklists")
-        .select("id,title,category,is_critical,items")
+        .select("id,title,category,is_critical,checklist_items(id,question,required)")
         .order("is_critical", { ascending: false })
         .order("title");
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
-        ...c,
-        items: normalizeItems(c.items),
+        id: c.id,
+        title: c.title,
+        category: c.category,
+        is_critical: c.is_critical,
+        items: (c.checklist_items ?? []).map((it: any) => ({
+          id: it.id,
+          question: it.question,
+          required: !!it.required,
+        })) as ChecklistItem[],
       })) as Checklist[];
     },
   });
@@ -202,6 +210,9 @@ function DailyChecklistsPage() {
   const activeChecklist = activeExec
     ? (checklists ?? []).find((c) => c.id === activeExec.checklist_id) ?? null
     : null;
+  const manageChecklist = manageId
+    ? (checklists ?? []).find((c) => c.id === manageId) ?? null
+    : null;
 
   if (loading || !profile) return <Loading />;
 
@@ -256,7 +267,7 @@ function DailyChecklistsPage() {
                       className="mt-0.5"
                     />
                     <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>
-                      {item.text}
+                      {item.question}
                     </span>
                   </li>
                 );
@@ -326,9 +337,19 @@ function DailyChecklistsPage() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {c.category ?? "Sem categoria"} · {exec ? `${done}/${total}` : `${total} itens`}
+                      {c.category ?? "Sem categoria"} · {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
                     </div>
                   </div>
+                  {canManage && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Gerenciar perguntas"
+                      onClick={() => setManageId(c.id)}
+                    >
+                      <Settings2 size={16} />
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant={completed ? "outline" : "default"}
@@ -346,6 +367,129 @@ function DailyChecklistsPage() {
           })}
         </ul>
       )}
+
+      <ManageItemsDialog
+        checklist={manageChecklist}
+        open={!!manageChecklist}
+        onOpenChange={(v) => !v && setManageId(null)}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: checklistsKey })}
+      />
     </MobileShell>
+  );
+}
+
+function ManageItemsDialog({
+  checklist,
+  open,
+  onOpenChange,
+  onChanged,
+}: {
+  checklist: Checklist | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onChanged: () => void;
+}) {
+  const [newQuestion, setNewQuestion] = useState("");
+
+  const addMutation = useMutation({
+    mutationFn: async (question: string) => {
+      if (!checklist) throw new Error("Checklist inválido");
+      const { error } = await supabase
+        .from("checklist_items")
+        .insert({ checklist_id: checklist.id, question, required: false });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewQuestion("");
+      onChanged();
+      toast.success("Pergunta adicionada");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao adicionar"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase.from("checklist_items").delete().eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      onChanged();
+      toast.success("Pergunta removida");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao remover"),
+  });
+
+  const submit = () => {
+    const q = newQuestion.trim();
+    if (!q) return;
+    addMutation.mutate(q);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            Gerenciar Perguntas{checklist ? ` — ${checklist.title}` : ""}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nova pergunta..."
+              value={newQuestion}
+              onChange={(e) => setNewQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              disabled={addMutation.isPending}
+            />
+            <Button
+              onClick={submit}
+              disabled={addMutation.isPending || !newQuestion.trim()}
+            >
+              <Plus size={16} className="mr-1" />
+              Adicionar
+            </Button>
+          </div>
+
+          <div className="border rounded-md max-h-[50vh] overflow-y-auto">
+            {!checklist?.items.length ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Nenhuma pergunta cadastrada ainda.
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {checklist.items.map((item, idx) => (
+                  <li key={item.id} className="flex items-center gap-2 p-3">
+                    <span className="text-xs text-muted-foreground w-6">{idx + 1}.</span>
+                    <span className="text-sm flex-1">{item.question}</span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-red-600 hover:text-red-700"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => deleteMutation.mutate(item.id)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
