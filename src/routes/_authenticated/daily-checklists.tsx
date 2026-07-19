@@ -406,53 +406,30 @@ function DailyChecklistsPage() {
     onError: (e: any) => toast.error(e.message ?? "Erro ao finalizar"),
   });
 
-  const seedMutation = useMutation({
-    mutationFn: async () => {
+  const createChecklistMutation = useMutation({
+    mutationFn: async (title: string) => {
       if (!companyId) throw new Error("Empresa não encontrada");
-      // Full reset: wipe all existing checklists for this company (cascades to items + executions)
-      const { error: delErr } = await supabase
+      const { data, error } = await supabase
         .from("checklists")
-        .delete()
-        .eq("company_id", companyId);
-      if (delErr) throw delErr;
-
-      const { data: created, error } = await supabase
-        .from("checklists")
-        .insert(
-          FRANCHISE_DEFAULTS.map((f) => ({
-            company_id: companyId,
-            title: f.title,
-            category: f.category,
-            is_critical: !!f.is_critical,
-          })),
-        )
-        .select("id,title");
+        .insert({
+          company_id: companyId,
+          title,
+          category: "Personalizada",
+          is_critical: false,
+        } as any)
+        .select("id")
+        .single();
       if (error) throw error;
-
-      const itemsPayload: any[] = [];
-      (created ?? []).forEach((c: any) => {
-        const def = FRANCHISE_DEFAULTS.find((f) => f.title === c.title);
-        def?.items.forEach((it) => {
-          itemsPayload.push({
-            checklist_id: c.id,
-            question: it.question,
-            required: false,
-            response_type: it.response_type,
-          });
-        });
-      });
-      if (itemsPayload.length) {
-        const { error: itemsErr } = await supabase.from("checklist_items").insert(itemsPayload);
-        if (itemsErr) throw itemsErr;
-      }
-      return { created: FRANCHISE_DEFAULTS.length };
+      return data;
     },
-    onSuccess: (r) => {
-      toast.success(`Rotinas redefinidas (${r.created}).`);
+    onSuccess: (created: any) => {
+      toast.success("Rotina criada");
+      setCreateOpen(false);
+      setNewChecklistName("");
       queryClient.invalidateQueries({ queryKey: checklistsKey });
-      queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] });
+      if (created?.id) setManageId(created.id);
     },
-    onError: (e: any) => toast.error(e.message ?? "Erro ao redefinir padrões"),
+    onError: (e: any) => toast.error(e.message ?? "Erro ao criar rotina"),
   });
 
 
