@@ -11,6 +11,7 @@ import {
   Settings2,
   Trash2,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +50,13 @@ export const Route = createFileRoute("/_authenticated/daily-checklists")({
   ),
 });
 
-type ChecklistItem = { id: string; question: string; required: boolean };
+type ResponseType = "boolean" | "money" | "freezer_grid";
+type ChecklistItem = {
+  id: string;
+  question: string;
+  required: boolean;
+  response_type: ResponseType;
+};
 type Checklist = {
   id: string;
   title: string;
@@ -49,6 +64,10 @@ type Checklist = {
   is_critical: boolean;
   items: ChecklistItem[];
 };
+type AnswersData = Record<
+  string,
+  boolean | number | { count: number; temps: (string | number)[] } | null
+>;
 type Execution = {
   id: string;
   checklist_id: string;
@@ -56,11 +75,87 @@ type Execution = {
   user_id: string | null;
   status: "in_progress" | "completed";
   checked_items: Record<string, boolean>;
+  answers_data: AnswersData;
   execution_date: string;
   completed_at: string | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+const FRANCHISE_DEFAULTS: {
+  title: string;
+  category: string;
+  is_critical?: boolean;
+  items: { question: string; response_type: ResponseType }[];
+}[] = [
+  {
+    title: "Abertura",
+    category: "Operação",
+    items: [
+      { question: "Ligar PDVs", response_type: "boolean" },
+      { question: "Abrir caixa e valor de abertura", response_type: "money" },
+    ],
+  },
+  {
+    title: "Cuidados com o freezer",
+    category: "Qualidade",
+    is_critical: true,
+    items: [
+      { question: "Conferir temperaturas", response_type: "freezer_grid" },
+      { question: "Secagem dos freezers", response_type: "boolean" },
+      { question: "Raspagem dos freezers", response_type: "boolean" },
+    ],
+  },
+  {
+    title: "Limpeza",
+    category: "Higiene",
+    items: [
+      { question: "Limpeza de loja", response_type: "boolean" },
+      { question: "Limpeza de PDVs", response_type: "boolean" },
+      { question: "Limpeza de freezers", response_type: "boolean" },
+      { question: "Limpeza e organização de estoque", response_type: "boolean" },
+    ],
+  },
+  {
+    title: "Recebimento de Mercadoria",
+    category: "Estoque",
+    items: [
+      { question: "Conferência de notas", response_type: "boolean" },
+      { question: "Organização de produtos em estoque", response_type: "boolean" },
+      { question: "Abertura de produtos novos", response_type: "boolean" },
+    ],
+  },
+  {
+    title: "Fechamento",
+    category: "Operação",
+    items: [
+      { question: "Fechar PDVs", response_type: "boolean" },
+      { question: "Desligar luzes", response_type: "boolean" },
+      { question: "Desligar computadores e eletrônicos", response_type: "boolean" },
+    ],
+  },
+];
+
+function isAnswered(item: ChecklistItem, answers: AnswersData, legacy: Record<string, boolean>) {
+  const v = answers?.[item.id];
+  if (item.response_type === "boolean") {
+    if (typeof v === "boolean") return v;
+    return !!legacy?.[item.id];
+  }
+  if (item.response_type === "money") {
+    return typeof v === "number" && !Number.isNaN(v);
+  }
+  if (item.response_type === "freezer_grid") {
+    if (!v || typeof v !== "object") return false;
+    const grid = v as { count: number; temps: (string | number)[] };
+    return (
+      grid.count > 0 &&
+      grid.temps.length === grid.count &&
+      grid.temps.every((t) => t !== "" && t !== null && t !== undefined)
+    );
+  }
+  return false;
+}
 
 function DailyChecklistsPage() {
   const { profile, loading } = useProfile();
@@ -81,7 +176,7 @@ function DailyChecklistsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklists")
-        .select("id,title,category,is_critical,checklist_items(id,question,required)")
+        .select("id,title,category,is_critical,checklist_items(id,question,required,response_type)")
         .order("is_critical", { ascending: false })
         .order("title");
       if (error) throw error;
@@ -94,6 +189,7 @@ function DailyChecklistsPage() {
           id: it.id,
           question: it.question,
           required: !!it.required,
+          response_type: (it.response_type ?? "boolean") as ResponseType,
         })) as ChecklistItem[],
       })) as Checklist[];
     },
@@ -109,7 +205,11 @@ function DailyChecklistsPage() {
         .eq("unit_id", unitId!)
         .eq("execution_date", today());
       if (error) throw error;
-      return (data ?? []) as Execution[];
+      return (data ?? []).map((e: any) => ({
+        ...e,
+        answers_data: (e.answers_data ?? {}) as AnswersData,
+        checked_items: (e.checked_items ?? {}) as Record<string, boolean>,
+      })) as Execution[];
     },
   });
 
@@ -134,8 +234,9 @@ function DailyChecklistsPage() {
           user_id: authData.user.id,
           status: "in_progress",
           checked_items: {},
+          answers_data: {},
           execution_date: today(),
-        })
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -148,12 +249,24 @@ function DailyChecklistsPage() {
     onError: (e: any) => toast.error(e.message ?? "Erro ao iniciar checklist"),
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async (args: { exec: Execution; itemId: string; checked: boolean }) => {
-      const next = { ...(args.exec.checked_items ?? {}), [args.itemId]: args.checked };
+  const answerMutation = useMutation({
+    mutationFn: async (args: {
+      exec: Execution;
+      itemId: string;
+      value: AnswersData[string];
+      alsoChecked?: boolean;
+    }) => {
+      const nextAnswers = { ...(args.exec.answers_data ?? {}), [args.itemId]: args.value };
+      const patch: any = { answers_data: nextAnswers };
+      if (typeof args.alsoChecked === "boolean") {
+        patch.checked_items = {
+          ...(args.exec.checked_items ?? {}),
+          [args.itemId]: args.alsoChecked,
+        };
+      }
       const { data, error } = await supabase
         .from("checklist_executions")
-        .update({ checked_items: next })
+        .update(patch)
         .eq("id", args.exec.id)
         .select()
         .single();
@@ -165,17 +278,24 @@ function DailyChecklistsPage() {
       await queryClient.cancelQueries({ queryKey: key });
       const prev = queryClient.getQueryData<Execution[]>(key);
       queryClient.setQueryData<Execution[]>(key, (old) =>
-        (old ?? []).map((e) =>
-          e.id === args.exec.id
-            ? { ...e, checked_items: { ...(e.checked_items ?? {}), [args.itemId]: args.checked } }
-            : e,
-        ),
+        (old ?? []).map((e) => {
+          if (e.id !== args.exec.id) return e;
+          const nextChecked =
+            typeof args.alsoChecked === "boolean"
+              ? { ...(e.checked_items ?? {}), [args.itemId]: args.alsoChecked }
+              : e.checked_items;
+          return {
+            ...e,
+            answers_data: { ...(e.answers_data ?? {}), [args.itemId]: args.value },
+            checked_items: nextChecked,
+          };
+        }),
       );
       return { prev };
     },
     onError: (e: any, _v, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["daily-executions", unitId, today()], ctx.prev);
-      toast.error(e.message ?? "Erro ao salvar item");
+      toast.error(e.message ?? "Erro ao salvar resposta");
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] }),
@@ -195,6 +315,54 @@ function DailyChecklistsPage() {
       setActiveId(null);
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao finalizar"),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error("Empresa não encontrada");
+      const existingTitles = new Set((checklists ?? []).map((c) => c.title.toLowerCase()));
+      const toCreate = FRANCHISE_DEFAULTS.filter(
+        (f) => !existingTitles.has(f.title.toLowerCase()),
+      );
+      if (!toCreate.length) return { created: 0 };
+
+      const { data: created, error } = await supabase
+        .from("checklists")
+        .insert(
+          toCreate.map((f) => ({
+            company_id: companyId,
+            title: f.title,
+            category: f.category,
+            is_critical: !!f.is_critical,
+          })),
+        )
+        .select("id,title");
+      if (error) throw error;
+
+      const itemsPayload: any[] = [];
+      (created ?? []).forEach((c: any) => {
+        const def = toCreate.find((f) => f.title === c.title);
+        def?.items.forEach((it) => {
+          itemsPayload.push({
+            checklist_id: c.id,
+            question: it.question,
+            required: false,
+            response_type: it.response_type,
+          });
+        });
+      });
+      if (itemsPayload.length) {
+        const { error: itemsErr } = await supabase.from("checklist_items").insert(itemsPayload);
+        if (itemsErr) throw itemsErr;
+      }
+      return { created: toCreate.length };
+    },
+    onSuccess: (r) => {
+      if (r.created === 0) toast.info("Padrões já estavam carregados.");
+      else toast.success(`${r.created} rotina(s) padrão criada(s).`);
+      queryClient.invalidateQueries({ queryKey: checklistsKey });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao carregar padrões"),
   });
 
   const execByChecklist = useMemo(() => {
@@ -231,20 +399,27 @@ function DailyChecklistsPage() {
     );
   }
 
-
   if (activeExec && activeChecklist) {
     const locked = activeExec.status === "completed";
     const total = activeChecklist.items.length;
-    const done = activeChecklist.items.filter((i) => activeExec.checked_items?.[i.id]).length;
+    const done = activeChecklist.items.filter((i) =>
+      isAnswered(i, activeExec.answers_data, activeExec.checked_items),
+    ).length;
 
     return (
-      <MobileShell profile={profile} title={activeChecklist.title} subtitle={locked ? "Finalizado" : `${done}/${total} itens`}>
+      <MobileShell
+        profile={profile}
+        title={activeChecklist.title}
+        subtitle={locked ? "Finalizado" : `${done}/${total} itens`}
+      >
         <Button variant="ghost" size="sm" onClick={() => setActiveId(null)} className="gap-1 -ml-2">
           <ArrowLeft size={16} /> Voltar
         </Button>
 
         {activeChecklist.is_critical && (
-          <Badge variant="destructive" className="w-fit">Checklist crítico</Badge>
+          <Badge variant="destructive" className="w-fit">
+            Checklist crítico
+          </Badge>
         )}
 
         <Card className="p-3">
@@ -254,24 +429,18 @@ function DailyChecklistsPage() {
             </div>
           ) : (
             <ul className="divide-y">
-              {activeChecklist.items.map((item) => {
-                const checked = !!activeExec.checked_items?.[item.id];
-                return (
-                  <li key={item.id} className="flex items-start gap-3 py-3">
-                    <Checkbox
-                      checked={checked}
-                      disabled={locked || toggleMutation.isPending}
-                      onCheckedChange={(v) =>
-                        toggleMutation.mutate({ exec: activeExec, itemId: item.id, checked: !!v })
-                      }
-                      className="mt-0.5"
-                    />
-                    <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>
-                      {item.question}
-                    </span>
-                  </li>
-                );
-              })}
+              {activeChecklist.items.map((item) => (
+                <li key={item.id} className="py-3">
+                  <AnswerRow
+                    item={item}
+                    exec={activeExec}
+                    locked={locked || answerMutation.isPending}
+                    onAnswer={(value, alsoChecked) =>
+                      answerMutation.mutate({ exec: activeExec, itemId: item.id, value, alsoChecked })
+                    }
+                  />
+                </li>
+              ))}
             </ul>
           )}
         </Card>
@@ -296,12 +465,26 @@ function DailyChecklistsPage() {
   }
 
   const dateStr = today().split("-").reverse().join("/");
-  const subtitle = selectedUnit && profile.role === "owner"
-    ? `${selectedUnit.name} · ${dateStr}`
-    : `Checklists de hoje · ${dateStr}`;
+  const subtitle =
+    selectedUnit && profile.role === "owner"
+      ? `${selectedUnit.name} · ${dateStr}`
+      : `Checklists de hoje · ${dateStr}`;
 
   return (
     <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
+      {canManage && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-fit gap-1.5"
+          disabled={seedMutation.isPending}
+          onClick={() => seedMutation.mutate()}
+        >
+          <Sparkles size={14} />
+          Carregar Padrões da Franquia
+        </Button>
+      )}
+
       {loadingLists || loadingExecs ? (
         <div className="space-y-2">
           <Skeleton className="h-20 w-full" />
@@ -317,7 +500,9 @@ function DailyChecklistsPage() {
           {checklists.map((c) => {
             const exec = execByChecklist.get(c.id);
             const total = c.items.length;
-            const done = exec ? c.items.filter((i) => exec.checked_items?.[i.id]).length : 0;
+            const done = exec
+              ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items)).length
+              : 0;
             const completed = exec?.status === "completed";
             return (
               <li key={c.id}>
@@ -333,11 +518,14 @@ function DailyChecklistsPage() {
                     <div className="flex items-center gap-2">
                       <div className="text-sm font-medium truncate">{c.title}</div>
                       {c.is_critical && (
-                        <Badge variant="destructive" className="text-[10px] py-0 px-1.5">crítico</Badge>
+                        <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
+                          crítico
+                        </Badge>
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {c.category ?? "Sem categoria"} · {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
+                      {c.category ?? "Sem categoria"} ·{" "}
+                      {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
                     </div>
                   </div>
                   {canManage && (
@@ -378,6 +566,116 @@ function DailyChecklistsPage() {
   );
 }
 
+function AnswerRow({
+  item,
+  exec,
+  locked,
+  onAnswer,
+}: {
+  item: ChecklistItem;
+  exec: Execution;
+  locked: boolean;
+  onAnswer: (value: AnswersData[string], alsoChecked?: boolean) => void;
+}) {
+  const current = exec.answers_data?.[item.id];
+
+  if (item.response_type === "money") {
+    const val = typeof current === "number" ? current : "";
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm">{item.question}</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">R$</span>
+          <Input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            disabled={locked}
+            defaultValue={val}
+            placeholder="0,00"
+            onBlur={(e) => {
+              const n = parseFloat(e.target.value);
+              if (Number.isNaN(n)) return;
+              if (n === current) return;
+              onAnswer(n);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (item.response_type === "freezer_grid") {
+    const grid =
+      current && typeof current === "object"
+        ? (current as { count: number; temps: (string | number)[] })
+        : { count: 0, temps: [] };
+    const setCount = (n: number) => {
+      const count = Math.max(0, Math.min(50, Math.floor(n) || 0));
+      const temps = Array.from({ length: count }, (_, i) => grid.temps[i] ?? "");
+      onAnswer({ count, temps });
+    };
+    const setTemp = (idx: number, v: string) => {
+      const temps = [...grid.temps];
+      temps[idx] = v;
+      onAnswer({ count: grid.count, temps });
+    };
+    return (
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm">{item.question}</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Qtd. freezers:</span>
+          <Input
+            type="number"
+            min="0"
+            max="50"
+            className="w-20"
+            disabled={locked}
+            defaultValue={grid.count || ""}
+            onBlur={(e) => setCount(parseInt(e.target.value, 10))}
+          />
+        </div>
+        {grid.count > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {Array.from({ length: grid.count }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
+                <Input
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  placeholder="°C"
+                  disabled={locked}
+                  defaultValue={grid.temps[i] ?? ""}
+                  onBlur={(e) => setTemp(i, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // boolean
+  const checked =
+    typeof current === "boolean" ? current : !!exec.checked_items?.[item.id];
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        checked={checked}
+        disabled={locked}
+        onCheckedChange={(v) => onAnswer(!!v, !!v)}
+        className="mt-0.5"
+      />
+      <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>
+        {item.question}
+      </span>
+    </div>
+  );
+}
+
 function ManageItemsDialog({
   checklist,
   open,
@@ -390,17 +688,24 @@ function ManageItemsDialog({
   onChanged: () => void;
 }) {
   const [newQuestion, setNewQuestion] = useState("");
+  const [newType, setNewType] = useState<ResponseType>("boolean");
 
   const addMutation = useMutation({
-    mutationFn: async (question: string) => {
+    mutationFn: async (args: { question: string; response_type: ResponseType }) => {
       if (!checklist) throw new Error("Checklist inválido");
       const { error } = await supabase
         .from("checklist_items")
-        .insert({ checklist_id: checklist.id, question, required: false });
+        .insert({
+          checklist_id: checklist.id,
+          question: args.question,
+          required: false,
+          response_type: args.response_type,
+        } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       setNewQuestion("");
+      setNewType("boolean");
       onChanged();
       toast.success("Pergunta adicionada");
     },
@@ -422,7 +727,13 @@ function ManageItemsDialog({
   const submit = () => {
     const q = newQuestion.trim();
     if (!q) return;
-    addMutation.mutate(q);
+    addMutation.mutate({ question: q, response_type: newType });
+  };
+
+  const typeLabel: Record<ResponseType, string> = {
+    boolean: "Sim/Não",
+    money: "Valor (R$)",
+    freezer_grid: "Grade de freezers",
   };
 
   return (
@@ -435,7 +746,7 @@ function ManageItemsDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Nova pergunta..."
               value={newQuestion}
@@ -448,10 +759,17 @@ function ManageItemsDialog({
               }}
               disabled={addMutation.isPending}
             />
-            <Button
-              onClick={submit}
-              disabled={addMutation.isPending || !newQuestion.trim()}
-            >
+            <Select value={newType} onValueChange={(v) => setNewType(v as ResponseType)}>
+              <SelectTrigger className="sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="boolean">Sim/Não</SelectItem>
+                <SelectItem value="money">Valor (R$)</SelectItem>
+                <SelectItem value="freezer_grid">Grade freezers</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={submit} disabled={addMutation.isPending || !newQuestion.trim()}>
               <Plus size={16} className="mr-1" />
               Adicionar
             </Button>
@@ -467,7 +785,12 @@ function ManageItemsDialog({
                 {checklist.items.map((item, idx) => (
                   <li key={item.id} className="flex items-center gap-2 p-3">
                     <span className="text-xs text-muted-foreground w-6">{idx + 1}.</span>
-                    <span className="text-sm flex-1">{item.question}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm">{item.question}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {typeLabel[item.response_type]}
+                      </div>
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"
