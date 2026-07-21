@@ -1175,6 +1175,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      invite_code_valid: { Args: { _code: string }; Returns: boolean }
       recalculate_operational_score: {
         Args: { _unit_id: string }
         Returns: number

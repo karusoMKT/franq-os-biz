@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Eye, EyeOff, Building2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PROFILE_QUERY_KEY } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/signup")({
   ssr: false,
@@ -10,12 +12,17 @@ export const Route = createFileRoute("/signup")({
   component: SignupPage,
 });
 
+type Mode = "owner" | "employee";
+
 function SignupPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<Mode>("owner");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -27,21 +34,60 @@ function SignupPage() {
     }
     setLoading(true);
     try {
+      const normalizedCode = inviteCode.trim().toUpperCase();
+
+      // Validate invite code BEFORE creating the user, so a bad code doesn't
+      // burn an email address.
+      if (mode === "employee") {
+        if (!normalizedCode) {
+          toast.error("Informe o código de convite");
+          setLoading(false);
+          return;
+        }
+        const { data: valid, error: vErr } = await supabase.rpc(
+          "invite_code_valid" as never,
+          { _code: normalizedCode } as never,
+        );
+        if (vErr) throw vErr;
+        if (!valid) {
+          toast.error("Código de convite inválido");
+          setLoading(false);
+          return;
+        }
+      }
+
+      const redirectPath = mode === "owner" ? "/onboarding" : "/daily-checklists";
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/onboarding`,
+          emailRedirectTo: `${window.location.origin}${redirectPath}`,
           data: { name },
         },
       });
       if (error) throw error;
-      // If email confirmation disabled, session is returned immediately.
-      if (data.session) {
-        navigate({ to: "/onboarding", search: { name } as never });
-      } else {
+
+      if (!data.session) {
         toast.success("Conta criada! Confirme seu e-mail para continuar.");
         navigate({ to: "/auth" });
+        return;
+      }
+
+      if (mode === "employee") {
+        const { error: rErr } = await supabase.rpc(
+          "redeem_invite_code" as never,
+          { _code: normalizedCode, _name: name } as never,
+        );
+        if (rErr) {
+          toast.error(rErr.message ?? "Erro ao vincular ao código de convite");
+          setLoading(false);
+          return;
+        }
+        await qc.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+        toast.success("Bem-vindo! Você foi vinculado à sua loja.");
+        navigate({ to: "/daily-checklists" });
+      } else {
+        navigate({ to: "/onboarding", search: { name } as never });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar conta");
@@ -59,9 +105,18 @@ function SignupPage() {
       </header>
       <div className="flex-1 px-6 pb-8 max-w-sm w-full mx-auto">
         <h1 className="text-2xl font-bold text-slate-900 text-center">Criar sua conta</h1>
-        <p className="text-center text-sm text-slate-500 mt-2 mb-8">
-          Preencha seus dados para começar.
+        <p className="text-center text-sm text-slate-500 mt-2 mb-6">
+          Escolha o tipo de conta que você quer criar.
         </p>
+
+        <div className="grid grid-cols-2 gap-2 mb-6 bg-slate-100 p-1 rounded-lg">
+          <TabBtn active={mode === "owner"} onClick={() => setMode("owner")}>
+            <Building2 size={16} className="mr-1.5" /> Proprietário
+          </TabBtn>
+          <TabBtn active={mode === "employee"} onClick={() => setMode("employee")}>
+            <KeyRound size={16} className="mr-1.5" /> Colaborador
+          </TabBtn>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Nome completo">
@@ -115,6 +170,22 @@ function SignupPage() {
             />
           </Field>
 
+          {mode === "employee" && (
+            <Field label="Código de convite">
+              <input
+                className={fieldCls + " uppercase tracking-widest font-mono"}
+                required
+                maxLength={8}
+                placeholder="Ex: A3B7K9"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Peça o código para o proprietário ou gerente da sua loja.
+              </p>
+            </Field>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -144,5 +215,27 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="text-sm font-medium text-slate-700">{label}</label>
       {children}
     </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-9 rounded-md text-sm font-medium flex items-center justify-center transition ${
+        active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
