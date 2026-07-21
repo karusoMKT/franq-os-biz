@@ -396,10 +396,43 @@ function DailyChecklistsPage() {
         .update({ status: "completed", completed_at: new Date().toISOString() })
         .eq("id", exec.id);
       if (error) throw error;
+
+      // Notificação de Abertura de Caixa (pdv_opening)
+      try {
+        const checklist = checklists?.find((c) => c.id === exec.checklist_id);
+        const pdvItem = checklist?.items.find((i) => i.response_type === "pdv_opening");
+        if (pdvItem && companyId && unitId) {
+          const ans = (exec.answers_data?.[pdvItem.id] as PdvOpeningAns | undefined) ?? null;
+          const values = (ans?.values ?? []).filter(
+            (v) => v !== "" && v !== null && v !== undefined && !Number.isNaN(Number(v)),
+          );
+          if (values.length > 0) {
+            const fmt = (n: number) =>
+              n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            const unitName = unit?.name ?? "Unidade";
+            const message =
+              values.length === 1
+                ? `O caixa foi aberto pelo funcionário com o valor de ${fmt(Number(values[0]))}`
+                : `O caixa foi aberto pelo funcionário com os valores: ${values
+                    .map((v, i) => `PDV ${i + 1}: ${fmt(Number(v))}`)
+                    .join(", ")}`;
+            await supabase.from("notifications").insert({
+              company_id: companyId,
+              unit_id: unitId,
+              title: `Abertura de Caixa - ${unitName}`,
+              message,
+              is_read: false,
+            } as any);
+          }
+        }
+      } catch (err) {
+        console.error("[notifications] Falha ao registrar abertura de caixa", err);
+      }
     },
     onSuccess: () => {
       toast.success("Checklist finalizado!");
       queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-bell"] });
       setActiveId(null);
     },
     onError: (e: any) => toast.error(e.message ?? "Erro ao finalizar"),
