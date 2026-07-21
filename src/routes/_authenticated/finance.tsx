@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star } from "lucide-react";
@@ -128,10 +128,17 @@ function isInCurrentMonth(dateStr: string | null) {
 
 function FinancePage() {
   const { profile, loading } = useProfile();
+  const navigate = useNavigate();
   const { selectedUnitId, selectedUnit, units } = useUnitContext();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [recurringOpen, setRecurringOpen] = useState(false);
+
+  useEffect(() => {
+    if (!loading && profile && profile.role !== "owner") {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [profile, loading, navigate]);
 
   const companyId = profile?.company_id ?? null;
   const isOverview = !selectedUnitId;
