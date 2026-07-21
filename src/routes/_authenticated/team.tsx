@@ -53,7 +53,7 @@ function TeamPage() {
     queryFn: async () => {
       let q = supabase
         .from("units")
-        .select("id,name,city,state")
+        .select("id,name,city,state,invite_code")
         .eq("company_id", profile!.company_id!)
         .order("name");
       if (profile!.role === "manager" && profile!.unit_id) {
