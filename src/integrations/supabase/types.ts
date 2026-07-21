@@ -1068,6 +1068,7 @@ export type Database = {
           freezer_count: number | null
           health_score: number | null
           id: string
+          invite_code: string
           latitude: number | null
           longitude: number | null
           name: string
@@ -1084,6 +1085,7 @@ export type Database = {
           freezer_count?: number | null
           health_score?: number | null
           id?: string
+          invite_code: string
           latitude?: number | null
           longitude?: number | null
           name: string
@@ -1100,6 +1102,7 @@ export type Database = {
           freezer_count?: number | null
           health_score?: number | null
           id?: string
+          invite_code?: string
           latitude?: number | null
           longitude?: number | null
           name?: string
@@ -1149,6 +1152,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       current_unit_id: { Args: never; Returns: string }
+      generate_invite_code: { Args: never; Returns: string }
       handle_onboarding:
         | {
             Args: {
@@ -1174,6 +1178,10 @@ export type Database = {
       recalculate_operational_score: {
         Args: { _unit_id: string }
         Returns: number
+      }
+      redeem_invite_code: {
+        Args: { _code: string; _name?: string }
+        Returns: Json
       }
     }
     Enums: {
