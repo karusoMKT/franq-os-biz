@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { FranqosLogo } from "./franqos-logo";
 import { BottomNav } from "./bottom-nav";
 import { UnitSwitcher } from "./unit-switcher";
+import { NotificationsBell } from "./notifications-bell";
 import type { Profile } from "@/hooks/use-profile";
 
 export function MobileShell({
@@ -19,6 +20,7 @@ export function MobileShell({
   unreadCount?: number;
   children: ReactNode;
 }) {
+  const canSeeBellPopover = profile.role === "owner" || profile.role === "manager";
   return (
     <div className="min-h-screen bg-[oklch(0.98_0.01_240)] pb-24">
       <header className="bg-white border-b sticky top-0 z-30">
@@ -30,14 +32,18 @@ export function MobileShell({
               {subtitle && <div className="text-[11px] text-muted-foreground">{subtitle}</div>}
             </div>
           </div>
-          <Link to="/notifications" className="relative p-2 text-muted-foreground" aria-label="Avisos">
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </Link>
+          {canSeeBellPopover ? (
+            <NotificationsBell profile={profile} />
+          ) : (
+            <Link to="/notifications" className="relative p-2 text-muted-foreground" aria-label="Avisos">
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
         {profile.role === "owner" && (
           <div className="mx-auto max-w-md px-4 pb-2 flex justify-end">
@@ -50,3 +56,4 @@ export function MobileShell({
     </div>
   );
 }
+
