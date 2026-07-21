@@ -804,20 +804,20 @@ function AnswerRow({
       );
     }
 
-    // Show as a checkbox that expands to N inputs
-    const anyFilled = isOpening
-      ? (ans as PdvOpeningAns).values.some((v) => v !== "" && v !== null && v !== undefined)
-      : (ans as PdvClosingAns).confirmed.some(Boolean);
+    // Checkbox expands to N inputs. "Checked" = array has been initialized with N slots.
+    const checked = isOpening
+      ? (ans as PdvOpeningAns).values.length > 0
+      : (ans as PdvClosingAns).confirmed.length > 0;
 
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-start gap-3">
           <Checkbox
-            checked={anyFilled}
+            checked={checked}
             disabled={locked}
             className="mt-0.5"
             onCheckedChange={(v) => {
-              if (v && !anyFilled) {
+              if (v && !checked) {
                 if (isOpening) onAnswer({ values: Array.from({ length: n }, () => "") });
                 else onAnswer({ confirmed: Array.from({ length: n }, () => false) });
               } else if (!v) {
@@ -829,7 +829,7 @@ function AnswerRow({
           <span className="text-sm">{item.question}</span>
         </div>
 
-        {anyFilled && isOpening && (
+        {checked && isOpening && (
           <div className="grid grid-cols-2 gap-2 pl-7">
             {Array.from({ length: n }).map((_, i) => {
               const values = (ans as PdvOpeningAns).values;
@@ -856,7 +856,7 @@ function AnswerRow({
           </div>
         )}
 
-        {anyFilled && !isOpening && (
+        {checked && !isOpening && (
           <div className="grid grid-cols-2 gap-2 pl-7">
             {Array.from({ length: n }).map((_, i) => {
               const confirmed = (ans as PdvClosingAns).confirmed;
