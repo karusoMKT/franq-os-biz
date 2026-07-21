@@ -1,17 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { UserPlus, Users } from "lucide-react";
+import { LinkIcon, Users } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
-import { createTeamMember } from "@/lib/api/team.functions";
 import { MobileShell } from "@/components/mobile-shell";
 import { Loading } from "@/components/loading";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,7 +36,6 @@ function TeamPage() {
   const { profile, loading } = useProfile();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const createFn = useServerFn(createTeamMember);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -49,6 +45,7 @@ function TeamPage() {
   }, [profile, loading, navigate]);
 
   const canManage = profile?.role === "owner" || profile?.role === "manager";
+  const isOwner = profile?.role === "owner";
 
   const { data: units = [] } = useQuery({
     enabled: !!profile?.company_id && canManage,
@@ -86,26 +83,49 @@ function TeamPage() {
     },
   });
 
+  // Perfis criados via signup padrão que ainda não pertencem a nenhuma empresa
+  const { data: unassigned = [], isLoading: unassignedLoading } = useQuery({
+    enabled: !!profile && isOwner,
+    queryKey: ["team-unassigned"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,user_id,name,email")
+        .is("company_id", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
+    profile_id: "",
     role: "employee" as "manager" | "employee",
     unit_id: "",
   });
 
-  const createMutation = useMutation({
+  const linkMutation = useMutation({
     mutationFn: async () => {
+      if (!form.profile_id) throw new Error("Selecione um usuário.");
       if (!form.unit_id) throw new Error("Selecione uma unidade.");
-      return await createFn({ data: form });
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          company_id: profile!.company_id!,
+          unit_id: form.unit_id,
+          role: form.role,
+        })
+        .eq("id", form.profile_id);
+      if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Membro criado com sucesso!");
+      toast.success("Membro vinculado com sucesso!");
       setOpen(false);
-      setForm({ name: "", email: "", password: "", role: "employee", unit_id: "" });
+      setForm({ profile_id: "", role: "employee", unit_id: "" });
       qc.invalidateQueries({ queryKey: ["team-members"] });
+      qc.invalidateQueries({ queryKey: ["team-unassigned"] });
     },
-    onError: (e: Error) => toast.error(e.message ?? "Erro ao criar membro."),
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao vincular membro."),
   });
 
   if (loading || !profile) return <Loading />;
@@ -128,9 +148,11 @@ function TeamPage() {
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Users size={18} /> Membros ({members.length})
         </div>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <UserPlus size={16} className="mr-1" /> Novo membro
-        </Button>
+        {isOwner && (
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <LinkIcon size={16} className="mr-1" /> Vincular membro
+          </Button>
+        )}
       </div>
 
       {membersLoading ? (
@@ -158,83 +180,98 @@ function TeamPage() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo membro</DialogTitle>
-            <DialogDescription>
-              Crie uma conta de gerente ou funcionário vinculada a uma unidade.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Nome</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      {isOwner && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Vincular membro</DialogTitle>
+              <DialogDescription>
+                Selecione um usuário que já criou conta no FranqOS e vincule-o a uma unidade.
+                Peça ao colaborador para se cadastrar em <span className="font-medium">/signup</span> antes.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <div>
+                <Label>Usuário disponível</Label>
+                <Select
+                  value={form.profile_id}
+                  onValueChange={(v) => setForm({ ...form, profile_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        unassignedLoading
+                          ? "Carregando..."
+                          : unassigned.length === 0
+                            ? "Nenhum usuário disponível"
+                            : "Selecione..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unassigned.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name ?? u.email} — {u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!unassignedLoading && unassigned.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Nenhum cadastro pendente. O colaborador precisa criar a conta primeiro.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label>Cargo</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm({ ...form, role: v as "manager" | "employee" })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="employee">Funcionário</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Unidade</Label>
+                <Select
+                  value={form.unit_id}
+                  onValueChange={(v) => setForm({ ...form, unit_id: v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {units.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name} {u.city ? `— ${u.city}/${u.state}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label>E-mail</Label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Senha</Label>
-              <Input
-                type="password"
-                minLength={6}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Cargo</Label>
-              <Select
-                value={form.role}
-                onValueChange={(v) => setForm({ ...form, role: v as "manager" | "employee" })}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button
+                onClick={() => linkMutation.mutate()}
+                disabled={
+                  linkMutation.isPending ||
+                  !form.profile_id ||
+                  !form.unit_id
+                }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manager">Gerente</SelectItem>
-                  <SelectItem value="employee">Funcionário</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Unidade</Label>
-              <Select
-                value={form.unit_id}
-                onValueChange={(v) => setForm({ ...form, unit_id: v })}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {units.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.name} {u.city ? `— ${u.city}/${u.state}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={
-                createMutation.isPending ||
-                !form.name ||
-                !form.email ||
-                form.password.length < 6 ||
-                !form.unit_id
-              }
-            >
-              {createMutation.isPending ? "Criando..." : "Criar membro"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                {linkMutation.isPending ? "Vinculando..." : "Vincular"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </MobileShell>
   );
 }
