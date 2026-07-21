@@ -46,7 +46,7 @@ function DashboardHome() {
     }
     if (profile.role === "owner") navigate({ to: "/dashboard/owner", replace: true });
     else if (profile.role === "manager") navigate({ to: "/dashboard/manager", replace: true });
-    else if (profile.role === "employee") navigate({ to: "/dashboard/employee", replace: true });
+    else if (profile.role === "employee") navigate({ to: "/daily-checklists", replace: true });
   }, [profile, loading, navigate]);
 
   const { data: company } = useQuery({
