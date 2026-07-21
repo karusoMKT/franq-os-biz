@@ -16,6 +16,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
@@ -62,6 +63,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/team': typeof AuthenticatedTeamRoute
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/pops': typeof AuthenticatedPopsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pops'
     | '/profile'
+    | '/team'
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pops'
     | '/profile'
+    | '/team'
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notifications'
     | '/_authenticated/pops'
     | '/_authenticated/profile'
+    | '/_authenticated/team'
     | '/_authenticated/dashboard/employee'
     | '/_authenticated/dashboard/manager'
     | '/_authenticated/dashboard/owner'
@@ -314,6 +326,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
@@ -431,6 +450,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPopsRoute: typeof AuthenticatedPopsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -442,6 +462,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPopsRoute: AuthenticatedPopsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

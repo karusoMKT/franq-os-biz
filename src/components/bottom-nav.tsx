@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, ClipboardCheck, BookOpen, User, ListChecks, ShieldCheck, Wallet } from "lucide-react";
+import { Home, BookOpen, User, ListChecks, ShieldCheck, Wallet, Users } from "lucide-react";
 import type { AppRole } from "@/hooks/use-profile";
 
 type Item = { to: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
@@ -10,20 +10,19 @@ const ITEMS: Record<AppRole, Item[]> = {
     { to: "/finance", label: "Financeiro", icon: Wallet },
     { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
     { to: "/audits", label: "Auditoria", icon: ShieldCheck },
+    { to: "/team", label: "Equipe", icon: Users },
     { to: "/pops", label: "POPs", icon: BookOpen },
     { to: "/profile", label: "Perfil", icon: User },
   ],
   manager: [
     { to: "/dashboard/manager", label: "Início", icon: Home },
     { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
-    { to: "/checklists", label: "Modelos", icon: ClipboardCheck },
+    { to: "/team", label: "Equipe", icon: Users },
     { to: "/pops", label: "POPs", icon: BookOpen },
     { to: "/profile", label: "Perfil", icon: User },
   ],
   employee: [
-    { to: "/dashboard/employee", label: "Início", icon: Home },
     { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
-    { to: "/checklists", label: "Modelos", icon: ClipboardCheck },
     { to: "/pops", label: "POPs", icon: BookOpen },
     { to: "/profile", label: "Perfil", icon: User },
   ],
@@ -32,10 +31,12 @@ const ITEMS: Record<AppRole, Item[]> = {
 export function BottomNav({ role }: { role: AppRole }) {
   const loc = useLocation();
   const items = ITEMS[role];
-  const cols = items.length === 6 ? "grid-cols-6" : "grid-cols-5";
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <ul className={`mx-auto max-w-md grid ${cols}`}>
+      <ul
+        className="mx-auto max-w-md grid"
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
         {items.map(({ to, label, icon: Icon }) => {
           const active = loc.pathname === to || loc.pathname.startsWith(to + "/");
           return (
