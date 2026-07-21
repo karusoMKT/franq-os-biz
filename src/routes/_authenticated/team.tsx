@@ -144,6 +144,54 @@ function TeamPage() {
 
   return (
     <MobileShell profile={profile} title="Equipe" subtitle="Gestão de acessos">
+      {units.length > 0 && (
+        <Card className="p-4 bg-gradient-to-br from-[var(--franqos-blue)] to-blue-700 text-white border-none">
+          <div className="flex items-center gap-2 mb-1">
+            <Ticket size={16} />
+            <div className="text-sm font-semibold">Convide seus funcionários</div>
+          </div>
+          <p className="text-[12px] text-white/80 mb-3">
+            Envie o código abaixo por WhatsApp. O colaborador cria a conta em{" "}
+            <span className="font-medium">/signup</span> na aba "Colaborador" e é vinculado
+            automaticamente à loja.
+          </p>
+          <div className="space-y-2">
+            {units.map((u) => {
+              const code = (u as { invite_code?: string | null }).invite_code ?? "";
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between bg-white/10 rounded-lg px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-xs text-white/70 truncate">{u.name}</div>
+                    <div className="font-mono text-lg tracking-widest font-bold">
+                      {code || "—"}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8"
+                    onClick={async () => {
+                      if (!code) return;
+                      try {
+                        await navigator.clipboard.writeText(code);
+                        toast.success(`Código ${code} copiado!`);
+                      } catch {
+                        toast.error("Não foi possível copiar");
+                      }
+                    }}
+                  >
+                    <Copy size={14} className="mr-1" /> Copiar
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Users size={18} /> Membros ({members.length})
