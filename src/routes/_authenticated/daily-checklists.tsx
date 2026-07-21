@@ -804,10 +804,10 @@ function AnswerRow({
       );
     }
 
-    // Show as a checkbox that expands to N inputs
-    const anyFilled = isOpening
-      ? (ans as PdvOpeningAns).values.some((v) => v !== "" && v !== null && v !== undefined)
-      : (ans as PdvClosingAns).confirmed.some(Boolean);
+    // Checkbox expands to N inputs. "Checked" = array has been initialized with N slots.
+    const checked = isOpening
+      ? (ans as PdvOpeningAns).values.length > 0
+      : (ans as PdvClosingAns).confirmed.length > 0;
 
     return (
       <div className="flex flex-col gap-2">
