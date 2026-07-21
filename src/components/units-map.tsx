@@ -106,7 +106,7 @@ export function UnitsMap({ units }: { units: MapUnit[] }) {
   }
 
   return (
-    <div className="h-64 rounded-lg overflow-hidden border">
+    <div className="h-64 rounded-lg overflow-hidden border z-0 isolate">
       <MapContainer
         center={[pins[0].coords.lat, pins[0].coords.lng]}
         zoom={4}
