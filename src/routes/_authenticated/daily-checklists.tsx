@@ -416,13 +416,27 @@ function DailyChecklistsPage() {
                 : `O caixa foi aberto pelo funcionário com os valores: ${values
                     .map((v, i) => `PDV ${i + 1}: ${fmt(Number(v))}`)
                     .join(", ")}`;
-            await supabase.from("notifications").insert({
-              company_id: companyId,
-              unit_id: unitId,
-              title: `Abertura de Caixa - ${unitName}`,
-              message,
-              is_read: false,
-            } as any);
+            // Target owner + managers of this unit (and company owners)
+            const { data: recipients } = await supabase
+              .from("profiles")
+              .select("id,role,unit_id,company_id")
+              .eq("company_id", companyId)
+              .in("role", ["owner", "manager"]);
+            const targets = (recipients ?? []).filter(
+              (p) => p.role === "owner" || p.unit_id === unitId,
+            );
+            if (targets.length > 0) {
+              await supabase.from("notifications").insert(
+                targets.map((p) => ({
+                  company_id: companyId,
+                  unit_id: unitId,
+                  profile_id: p.id,
+                  title: `Abertura de Caixa - ${unitName}`,
+                  message,
+                  is_read: false,
+                })),
+              );
+            }
           }
         }
       } catch (err) {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Bell, Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -28,23 +28,44 @@ function formatWhen(iso: string | null) {
 
 export function NotificationsBell({ profile }: { profile: Profile }) {
   const qc = useQueryClient();
-  const companyId = profile.company_id;
+  const profileId = profile.id;
 
   const { data, isLoading } = useQuery({
-    enabled: !!companyId,
-    queryKey: ["notifications-bell", companyId],
+    enabled: !!profileId,
+    queryKey: ["notifications-bell", profileId],
     queryFn: async (): Promise<Notification[]> => {
       const { data, error } = await supabase
         .from("notifications")
         .select("id,title,message,is_read,created_at,unit_id")
-        .eq("company_id", companyId!)
+        .eq("profile_id", profileId)
         .order("created_at", { ascending: false })
         .limit(20);
       if (error) throw error;
       return (data ?? []) as Notification[];
     },
-    refetchInterval: 30_000,
   });
+
+  useEffect(() => {
+    if (!profileId) return;
+    const channel = supabase
+      .channel(`notifications:${profileId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `profile_id=eq.${profileId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["notifications-bell", profileId] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, qc]);
 
   const unread = useMemo(() => (data ?? []).filter((n) => !n.is_read), [data]);
 
@@ -61,7 +82,7 @@ export function NotificationsBell({ profile }: { profile: Profile }) {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      if (!companyId || unread.length === 0) return;
+      if (!profileId || unread.length === 0) return;
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
