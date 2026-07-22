@@ -315,17 +315,42 @@ function OwnerDashboard() {
           <Skeleton className="h-20 w-full" />
         ) : unitOccurrences.length ? (
           <ul className="space-y-2">
-            {unitOccurrences.map((o: any) => (
-              <li key={o.id}>
-                <Card className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">{o.title}</div>
-                    <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{o.severity}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{o.status}</div>
-                </Card>
-              </li>
-            ))}
+            {unitOccurrences.map((o: any) => {
+              const isCritical = o.severity === "critical";
+              const unitName = data?.units.find((u: any) => u.id === o.unit_id)?.name ?? "Unidade";
+              const accent = isCritical
+                ? "border-l-4 border-l-red-600 bg-red-50"
+                : "border-l-4 border-l-amber-500 bg-amber-50";
+              const iconColor = isCritical ? "text-red-600" : "text-amber-600";
+              const badge = isCritical
+                ? "bg-red-100 text-red-700"
+                : "bg-amber-100 text-amber-800";
+              return (
+                <li key={o.id}>
+                  <Card className={`p-3 ${accent}`}>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${iconColor}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold truncate">{o.title}</div>
+                          <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full shrink-0 ${badge}`}>
+                            {o.severity}
+                          </span>
+                        </div>
+                        {o.description && (
+                          <div className="text-xs text-foreground/80 mt-0.5 line-clamp-2">{o.description}</div>
+                        )}
+                        <div className="text-[11px] text-muted-foreground mt-1 flex items-center gap-2">
+                          <span>{unitName}</span>
+                          <span>·</span>
+                          <span>{new Date(o.created_at).toLocaleString("pt-BR")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <EmptyState text="Sem ocorrências." />
