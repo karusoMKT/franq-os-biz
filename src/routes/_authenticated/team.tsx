@@ -128,6 +128,18 @@ function TeamPage() {
     onError: (e: Error) => toast.error(e.message ?? "Erro ao vincular membro."),
   });
 
+  const roleMutation = useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: "owner" | "manager" | "employee" }) => {
+      const { error } = await supabase.from("profiles").update({ role }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cargo atualizado!");
+      qc.invalidateQueries({ queryKey: ["team-members"] });
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Erro ao atualizar cargo."),
+  });
+
   if (loading || !profile) return <Loading />;
   if (!canManage) {
     return (
