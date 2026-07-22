@@ -1338,6 +1338,7 @@ function ManageItemsDialog({
 
   const typeLabel: Record<ResponseType, string> = {
     boolean: "Sim/Não",
+    text: "Texto livre",
     money: "Valor (R$)",
     freezer_grid: "Grade freezers (legado)",
     pdv_opening: "Abertura de PDVs",
