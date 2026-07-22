@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -235,6 +235,7 @@ function isAnswered(
 function DailyChecklistsPage() {
   const { profile, loading } = useProfile();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [manageId, setManageId] = useState<string | null>(null);
@@ -637,6 +638,14 @@ function DailyChecklistsPage() {
                     onAnswer={(value, alsoChecked) =>
                       answerMutation.mutate({ exec: activeExec, itemId: item.id, value, alsoChecked })
                     }
+                    onPhotoConfirmed={
+                      activeChecklist.items.length === 1 && item.response_type === "photo_upload"
+                        ? async () => {
+                            await finishMutation.mutateAsync(activeExec);
+                            navigate({ to: "/dashboard" });
+                          }
+                        : undefined
+                    }
                   />
                 </li>
               ))}
@@ -881,12 +890,14 @@ function AnswerRow({
   unit,
   locked,
   onAnswer,
+  onPhotoConfirmed,
 }: {
   item: ChecklistItem;
   exec: Execution;
   unit: UnitConfig | null;
   locked: boolean;
   onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
+  onPhotoConfirmed?: () => void | Promise<void>;
 }) {
   const current = exec.answers_data?.[item.id];
 
@@ -1095,6 +1106,7 @@ function AnswerRow({
         onAnswer={onAnswer}
         unitId={exec.unit_id}
         execId={exec.id}
+        onConfirmed={onPhotoConfirmed}
       />
     );
   }
@@ -1178,6 +1190,7 @@ function PhotoUploadRow({
   onAnswer,
   unitId,
   execId,
+  onConfirmed,
 }: {
   item: ChecklistItem;
   current: PhotoAns | null;
@@ -1185,30 +1198,49 @@ function PhotoUploadRow({
   onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
   unitId: string;
   execId: string;
+  onConfirmed?: () => void | Promise<void>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  const handleFile = async (file: File) => {
-    if (!file) return;
+  useEffect(() => {
+    if (!pendingFile) {
+      setLocalPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(pendingFile);
+    setLocalPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingFile]);
+
+  const pickFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Envie apenas imagens.");
       return;
     }
+    setPendingFile(file);
+  };
+
+  const confirmUpload = async () => {
+    if (!pendingFile) return;
     setUploading(true);
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext = (pendingFile.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${unitId}/${execId}/${item.id}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("receipts")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, pendingFile, { upsert: true, contentType: pendingFile.type });
       if (upErr) throw upErr;
       const { data: signed, error: signErr } = await supabase.storage
         .from("receipts")
         .createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signErr) throw signErr;
       onAnswer({ url: signed.signedUrl, path });
-      toast.success("Foto enviada");
+      setPendingFile(null);
+      toast.success("Foto enviada com sucesso!");
+      if (onConfirmed) await onConfirmed();
     } catch (e: any) {
       console.error("[receipts] upload falhou", e);
       toast.error(e.message ?? "Erro ao enviar foto");
@@ -1217,55 +1249,81 @@ function PhotoUploadRow({
     }
   };
 
+  const hasPending = !!pendingFile && !!localPreview;
+  const hasSaved = !!current?.url;
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <Label className="text-sm">{item.question}</Label>
-      {current?.url ? (
-        <div className="flex items-start gap-3">
-          <a href={current.url} target="_blank" rel="noreferrer" className="shrink-0">
+
+      {hasPending ? (
+        <div className="flex flex-col gap-3">
+          <img
+            src={localPreview!}
+            alt="Prévia do canhoto"
+            className="w-full max-h-64 object-contain rounded-lg border bg-slate-50"
+          />
+          <div className="flex flex-col gap-2">
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={uploading}
+              onClick={confirmUpload}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin mr-2" /> Enviando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={18} className="mr-2" /> Confirmar Envio
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={uploading}
+              onClick={() => setPendingFile(null)}
+            >
+              Trocar foto
+            </Button>
+          </div>
+        </div>
+      ) : hasSaved ? (
+        <div className="flex flex-col gap-2">
+          <a href={current!.url} target="_blank" rel="noreferrer">
             <img
-              src={current.url}
+              src={current!.url}
               alt={item.question}
-              className="h-20 w-20 object-cover rounded-md border"
+              className="w-full max-h-64 object-contain rounded-lg border bg-slate-50"
             />
           </a>
-          <div className="flex-1 flex flex-col gap-1">
-            <span className="text-xs text-green-700 flex items-center gap-1">
-              <CheckCircle2 size={14} /> Foto enviada
-            </span>
-            {!locked && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                disabled={uploading}
-                onClick={() => fileRef.current?.click()}
-              >
-                {uploading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Camera size={14} className="mr-1" />}
-                Substituir
-              </Button>
-            )}
-          </div>
+          <span className="text-xs text-green-700 flex items-center gap-1">
+            <CheckCircle2 size={14} /> Foto enviada
+          </span>
+          {!locked && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Camera size={14} className="mr-1.5" /> Substituir foto
+            </Button>
+          )}
         </div>
       ) : (
         <Button
-          variant="outline"
-          size="sm"
-          className="w-fit"
-          disabled={uploading || locked}
+          size="lg"
+          className="w-full h-16 text-base"
+          disabled={locked}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? (
-            <>
-              <Loader2 size={14} className="animate-spin mr-1.5" /> Enviando...
-            </>
-          ) : (
-            <>
-              <Camera size={14} className="mr-1.5" /> Tirar / enviar foto
-            </>
-          )}
+          <Camera size={22} className="mr-2" /> Tirar Foto / Anexar Canhoto
         </Button>
       )}
+
       <input
         ref={fileRef}
         type="file"
@@ -1274,7 +1332,7 @@ function PhotoUploadRow({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) handleFile(f);
+          if (f) pickFile(f);
           e.target.value = "";
         }}
       />
