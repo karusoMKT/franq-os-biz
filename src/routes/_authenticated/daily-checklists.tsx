@@ -1200,13 +1200,17 @@ function PhotoUploadRow({
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${unitId}/${execId}/${item.id}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
-        .from("invoices")
+        .from("receipts")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from("invoices").getPublicUrl(path);
-      onAnswer({ url: data.publicUrl, path });
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      onAnswer({ url: signed.signedUrl, path });
       toast.success("Foto enviada");
     } catch (e: any) {
+      console.error("[receipts] upload falhou", e);
       toast.error(e.message ?? "Erro ao enviar foto");
     } finally {
       setUploading(false);
