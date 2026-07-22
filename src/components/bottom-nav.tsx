@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, BookOpen, User, ListChecks, ShieldCheck, Wallet, Users, AlertTriangle } from "lucide-react";
+import { Home, BookOpen, User, ListChecks, ShieldCheck, Wallet, Users } from "lucide-react";
 import type { AppRole } from "@/hooks/use-profile";
 
 type Item = { to: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
