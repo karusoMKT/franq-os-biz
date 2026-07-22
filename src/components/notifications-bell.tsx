@@ -82,7 +82,7 @@ export function NotificationsBell({ profile }: { profile: Profile }) {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      if (!companyId || unread.length === 0) return;
+      if (!profileId || unread.length === 0) return;
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
