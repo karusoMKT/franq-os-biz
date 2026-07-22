@@ -537,6 +537,7 @@ export type Database = {
           id: string
           reported_by: string | null
           resolved_at: string | null
+          routine_type: string | null
           severity: string | null
           status: string | null
           title: string
@@ -549,6 +550,7 @@ export type Database = {
           id?: string
           reported_by?: string | null
           resolved_at?: string | null
+          routine_type?: string | null
           severity?: string | null
           status?: string | null
           title: string
@@ -561,6 +563,7 @@ export type Database = {
           id?: string
           reported_by?: string | null
           resolved_at?: string | null
+          routine_type?: string | null
           severity?: string | null
           status?: string | null
           title?: string
@@ -1154,6 +1157,13 @@ export type Database = {
       current_unit_id: { Args: never; Returns: string }
       generate_invite_code: { Args: never; Returns: string }
       get_pdv_notification_recipients: {
+        Args: { _unit_id: string }
+        Returns: {
+          company_id: string
+          profile_id: string
+        }[]
+      }
+      get_unit_manager_recipients: {
         Args: { _unit_id: string }
         Returns: {
           company_id: string
