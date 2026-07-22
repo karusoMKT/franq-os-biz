@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
+import { Route as AuthenticatedOccurrencesRouteImport } from './routes/_authenticated/occurrences'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -79,6 +80,12 @@ const AuthenticatedPopsRoute = AuthenticatedPopsRouteImport.update({
   path: '/pops',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOccurrencesRoute =
+  AuthenticatedOccurrencesRouteImport.update({
+    id: '/occurrences',
+    path: '/occurrences',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNotificationsRoute =
   AuthenticatedNotificationsRouteImport.update({
     id: '/notifications',
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/finance': typeof AuthenticatedFinanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/occurrences': typeof AuthenticatedOccurrencesRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -169,6 +177,7 @@ export interface FileRoutesByTo {
   '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
   '/finance': typeof AuthenticatedFinanceRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/occurrences': typeof AuthenticatedOccurrencesRoute
   '/pops': typeof AuthenticatedPopsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -192,6 +201,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/_authenticated/finance': typeof AuthenticatedFinanceRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/occurrences': typeof AuthenticatedOccurrencesRoute
   '/_authenticated/pops': typeof AuthenticatedPopsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/finance'
     | '/notifications'
+    | '/occurrences'
     | '/pops'
     | '/profile'
     | '/team'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/daily-checklists'
     | '/finance'
     | '/notifications'
+    | '/occurrences'
     | '/pops'
     | '/profile'
     | '/team'
@@ -257,6 +269,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/finance'
     | '/_authenticated/notifications'
+    | '/_authenticated/occurrences'
     | '/_authenticated/pops'
     | '/_authenticated/profile'
     | '/_authenticated/team'
@@ -346,6 +359,13 @@ declare module '@tanstack/react-router' {
       path: '/pops'
       fullPath: '/pops'
       preLoaderRoute: typeof AuthenticatedPopsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/occurrences': {
+      id: '/_authenticated/occurrences'
+      path: '/occurrences'
+      fullPath: '/occurrences'
+      preLoaderRoute: typeof AuthenticatedOccurrencesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notifications': {
@@ -448,6 +468,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedOccurrencesRoute: typeof AuthenticatedOccurrencesRoute
   AuthenticatedPopsRoute: typeof AuthenticatedPopsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
@@ -460,6 +481,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
   AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedOccurrencesRoute: AuthenticatedOccurrencesRoute,
   AuthenticatedPopsRoute: AuthenticatedPopsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
