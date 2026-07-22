@@ -235,6 +235,7 @@ function isAnswered(
 function DailyChecklistsPage() {
   const { profile, loading } = useProfile();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { selectedUnitId, selectedUnit } = useUnitContext();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [manageId, setManageId] = useState<string | null>(null);
