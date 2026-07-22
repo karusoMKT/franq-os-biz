@@ -1070,6 +1070,22 @@ function AnswerRow({
   }
 
 
+  if (item.response_type === "text") {
+    const val = typeof current === "string" ? current : "";
+    return (
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm">{item.question}</Label>
+        <Input
+          type="text"
+          disabled={locked}
+          defaultValue={val}
+          placeholder="Digite aqui..."
+          onBlur={(e) => onAnswer(e.target.value.trim(), e.target.value.trim().length > 0)}
+        />
+      </div>
+    );
+  }
+
   if (item.response_type === "photo_upload") {
     return (
       <PhotoUploadRow
@@ -1082,6 +1098,7 @@ function AnswerRow({
       />
     );
   }
+
 
   if (item.response_type === "freezer_grid") {
     // legacy
