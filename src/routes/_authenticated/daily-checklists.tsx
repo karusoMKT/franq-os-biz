@@ -54,6 +54,7 @@ export const Route = createFileRoute("/_authenticated/daily-checklists")({
 
 type ResponseType =
   | "boolean"
+  | "text"
   | "pdv_opening"
   | "pdv_closing"
   | "freezer_temperatures"
@@ -82,6 +83,7 @@ type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
   | number
+  | string
   | PdvOpeningAns
   | PdvClosingAns
   | FreezerTempsAns
@@ -149,6 +151,8 @@ const FRANCHISE_DEFAULTS: {
     title: "Recebimento de Mercadoria",
     category: "Estoque",
     items: [
+      { question: "Número da Nota Fiscal", response_type: "text" },
+      { question: "Nome do Motorista", response_type: "text" },
       { question: "Conferencia de nota", response_type: "photo_upload" },
       { question: "Organização de produtos no estoque", response_type: "boolean" },
       { question: "Abertura de produtos novos", response_type: "boolean" },
@@ -183,6 +187,8 @@ function isAnswered(
     case "boolean":
       if (typeof v === "boolean") return v;
       return !!legacy?.[item.id];
+    case "text":
+      return typeof v === "string" && v.trim().length > 0;
     case "money":
       return typeof v === "number" && !Number.isNaN(v);
     case "pdv_opening": {
@@ -1064,6 +1070,22 @@ function AnswerRow({
   }
 
 
+  if (item.response_type === "text") {
+    const val = typeof current === "string" ? current : "";
+    return (
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm">{item.question}</Label>
+        <Input
+          type="text"
+          disabled={locked}
+          defaultValue={val}
+          placeholder="Digite aqui..."
+          onBlur={(e) => onAnswer(e.target.value.trim(), e.target.value.trim().length > 0)}
+        />
+      </div>
+    );
+  }
+
   if (item.response_type === "photo_upload") {
     return (
       <PhotoUploadRow
@@ -1076,6 +1098,7 @@ function AnswerRow({
       />
     );
   }
+
 
   if (item.response_type === "freezer_grid") {
     // legacy
@@ -1177,13 +1200,17 @@ function PhotoUploadRow({
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${unitId}/${execId}/${item.id}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
-        .from("invoices")
+        .from("receipts")
         .upload(path, file, { upsert: true, contentType: file.type });
       if (upErr) throw upErr;
-      const { data } = supabase.storage.from("invoices").getPublicUrl(path);
-      onAnswer({ url: data.publicUrl, path });
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("receipts")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signErr) throw signErr;
+      onAnswer({ url: signed.signedUrl, path });
       toast.success("Foto enviada");
     } catch (e: any) {
+      console.error("[receipts] upload falhou", e);
       toast.error(e.message ?? "Erro ao enviar foto");
     } finally {
       setUploading(false);
@@ -1311,6 +1338,7 @@ function ManageItemsDialog({
 
   const typeLabel: Record<ResponseType, string> = {
     boolean: "Sim/Não",
+    text: "Texto livre",
     money: "Valor (R$)",
     freezer_grid: "Grade freezers (legado)",
     pdv_opening: "Abertura de PDVs",
@@ -1350,6 +1378,7 @@ function ManageItemsDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="boolean">Sim/Não</SelectItem>
+                  <SelectItem value="text">Texto livre</SelectItem>
                   <SelectItem value="pdv_opening">Abertura de PDVs</SelectItem>
                   <SelectItem value="pdv_closing">Fechamento de PDVs</SelectItem>
                   <SelectItem value="freezer_temperatures">Temperaturas dos freezers</SelectItem>
