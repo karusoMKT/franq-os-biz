@@ -1106,6 +1106,7 @@ function AnswerRow({
         onAnswer={onAnswer}
         unitId={exec.unit_id}
         execId={exec.id}
+        onConfirmed={onPhotoConfirmed}
       />
     );
   }
