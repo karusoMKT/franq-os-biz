@@ -212,17 +212,36 @@ function TeamPage() {
       ) : (
         <div className="space-y-2">
           {members.map((m) => (
-            <Card key={m.id} className="p-3 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium">{m.name ?? m.email}</div>
-                <div className="text-xs text-muted-foreground">{m.email}</div>
+            <Card key={m.id} className="p-3 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium truncate">{m.name ?? m.email}</div>
+                <div className="text-xs text-muted-foreground truncate">{m.email}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
                   Unidade: {unitName(m.unit_id)}
                 </div>
               </div>
-              <Badge variant={m.role === "owner" ? "default" : "secondary"} className="capitalize">
-                {m.role}
-              </Badge>
+              {isOwner && m.user_id !== profile.user_id ? (
+                <Select
+                  value={m.role}
+                  onValueChange={(v) =>
+                    roleMutation.mutate({ id: m.id, role: v as "owner" | "manager" | "employee" })
+                  }
+                  disabled={roleMutation.isPending}
+                >
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="owner">Dono</SelectItem>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="employee">Funcionário</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge variant={m.role === "owner" ? "default" : "secondary"} className="capitalize">
+                  {m.role}
+                </Badge>
+              )}
             </Card>
           ))}
         </div>
