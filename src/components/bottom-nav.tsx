@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, BookOpen, User, ListChecks, ShieldCheck, Wallet, Users, AlertTriangle } from "lucide-react";
+import { Home, BookOpen, User, ListChecks, ShieldCheck, Wallet, Users } from "lucide-react";
 import type { AppRole } from "@/hooks/use-profile";
 
 type Item = { to: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> };
@@ -10,7 +10,6 @@ const ITEMS: Record<AppRole, Item[]> = {
     { to: "/finance", label: "Financeiro", icon: Wallet },
     { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
     { to: "/audits", label: "Auditoria", icon: ShieldCheck },
-    { to: "/occurrences", label: "Ocorrências", icon: AlertTriangle },
     { to: "/team", label: "Equipe", icon: Users },
     { to: "/pops", label: "POPs", icon: BookOpen },
     { to: "/profile", label: "Perfil", icon: User },
