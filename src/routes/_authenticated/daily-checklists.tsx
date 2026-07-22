@@ -890,12 +890,14 @@ function AnswerRow({
   unit,
   locked,
   onAnswer,
+  onPhotoConfirmed,
 }: {
   item: ChecklistItem;
   exec: Execution;
   unit: UnitConfig | null;
   locked: boolean;
   onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
+  onPhotoConfirmed?: () => void | Promise<void>;
 }) {
   const current = exec.answers_data?.[item.id];
 
