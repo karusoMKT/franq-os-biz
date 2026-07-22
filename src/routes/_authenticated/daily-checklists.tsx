@@ -54,6 +54,7 @@ export const Route = createFileRoute("/_authenticated/daily-checklists")({
 
 type ResponseType =
   | "boolean"
+  | "text"
   | "pdv_opening"
   | "pdv_closing"
   | "freezer_temperatures"
@@ -82,6 +83,7 @@ type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
   | number
+  | string
   | PdvOpeningAns
   | PdvClosingAns
   | FreezerTempsAns
