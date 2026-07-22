@@ -450,6 +450,76 @@ function DailyChecklistsPage() {
         toast.error("Erro inesperado ao notificar abertura de caixa.");
       }
 
+      // Alertas de Temperatura (freezer_temperatures)
+      try {
+        const checklist = checklists?.find((c) => c.id === exec.checklist_id);
+        const freezerItem = checklist?.items.find(
+          (i) => i.response_type === "freezer_temperatures",
+        );
+        if (freezerItem && companyId && unitId) {
+          const ans = (exec.answers_data?.[freezerItem.id] as FreezerTempsAns | undefined) ?? null;
+          const temps = ans?.temps ?? [];
+          const unsafe: { idx: number; temp: number }[] = [];
+          temps.forEach((raw, idx) => {
+            if (raw === "" || raw === null || raw === undefined) return;
+            const num = Number(raw);
+            if (Number.isFinite(num) && num > -18) unsafe.push({ idx, temp: num });
+          });
+          if (unsafe.length > 0) {
+            const unitName = unit?.name ?? "Unidade";
+            const details = unsafe
+              .map((u) => `Freezer ${u.idx + 1}: ${u.temp.toFixed(1)}°C`)
+              .join(", ");
+
+            // 1) Ocorrências (uma por freezer com problema)
+            const occRows = unsafe.map((u) => ({
+              company_id: companyId,
+              unit_id: unitId,
+              routine_type: "freezers",
+              title: `Temperatura acima do limite - Freezer ${u.idx + 1}`,
+              description: `Freezer ${u.idx + 1} registrou ${u.temp.toFixed(1)}°C (limite: -18°C) em ${unitName}.`,
+              severity: u.temp > -10 ? "critical" : "warning",
+              status: "open",
+            }));
+            const { error: occError } = await supabase.from("occurrences").insert(occRows);
+            if (occError) {
+              console.error("[occurrences] Falha ao registrar ocorrência", occError);
+            }
+
+            // 2) Notificar APENAS gerentes da unidade
+            const { data: managers, error: mgrError } = await supabase.rpc(
+              "get_unit_manager_recipients",
+              { _unit_id: unitId },
+            );
+            if (mgrError) {
+              console.error("[notifications] Falha ao buscar gerentes", mgrError);
+              toast.error("Não foi possível notificar os gerentes.");
+            } else if ((managers ?? []).length > 0) {
+              const rows = (managers as Array<{ profile_id: string; company_id: string }>).map(
+                (p) => ({
+                  company_id: p.company_id ?? companyId,
+                  unit_id: unitId,
+                  profile_id: p.profile_id,
+                  title: `Alerta de Temperatura - ${unitName}`,
+                  message: `Temperatura acima do limite (-18°C): ${details}`,
+                  is_read: false,
+                }),
+              );
+              const { error: insertError } = await supabase
+                .from("notifications")
+                .insert(rows);
+              if (insertError) {
+                console.error("[notifications] Falha ao inserir alertas", insertError);
+                toast.error("Falha ao enviar alertas de temperatura.");
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[occurrences] Falha ao processar temperaturas", err);
+      }
+
+
     },
     onSuccess: () => {
       toast.success("Checklist finalizado!");
