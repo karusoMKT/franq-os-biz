@@ -638,6 +638,14 @@ function DailyChecklistsPage() {
                     onAnswer={(value, alsoChecked) =>
                       answerMutation.mutate({ exec: activeExec, itemId: item.id, value, alsoChecked })
                     }
+                    onPhotoConfirmed={
+                      activeChecklist.items.length === 1 && item.response_type === "photo_upload"
+                        ? async () => {
+                            await finishMutation.mutateAsync(activeExec);
+                            navigate({ to: "/dashboard" });
+                          }
+                        : undefined
+                    }
                   />
                 </li>
               ))}
