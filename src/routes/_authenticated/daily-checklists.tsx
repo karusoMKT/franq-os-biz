@@ -1378,6 +1378,7 @@ function ManageItemsDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="boolean">Sim/Não</SelectItem>
+                  <SelectItem value="text">Texto livre</SelectItem>
                   <SelectItem value="pdv_opening">Abertura de PDVs</SelectItem>
                   <SelectItem value="pdv_closing">Fechamento de PDVs</SelectItem>
                   <SelectItem value="freezer_temperatures">Temperaturas dos freezers</SelectItem>
