@@ -10,7 +10,6 @@ const ITEMS: Record<AppRole, Item[]> = {
     { to: "/finance", label: "Financeiro", icon: Wallet },
     { to: "/daily-checklists", label: "Rotina", icon: ListChecks },
     { to: "/audits", label: "Auditoria", icon: ShieldCheck },
-    { to: "/occurrences", label: "Ocorrências", icon: AlertTriangle },
     { to: "/team", label: "Equipe", icon: Users },
     { to: "/pops", label: "POPs", icon: BookOpen },
     { to: "/profile", label: "Perfil", icon: User },
