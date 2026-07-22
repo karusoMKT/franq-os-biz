@@ -1153,6 +1153,13 @@ export type Database = {
       }
       current_unit_id: { Args: never; Returns: string }
       generate_invite_code: { Args: never; Returns: string }
+      get_pdv_notification_recipients: {
+        Args: { _unit_id: string }
+        Returns: {
+          company_id: string
+          profile_id: string
+        }[]
+      }
       handle_onboarding:
         | {
             Args: {
