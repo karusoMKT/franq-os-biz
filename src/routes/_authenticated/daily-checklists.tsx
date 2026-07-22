@@ -185,6 +185,8 @@ function isAnswered(
     case "boolean":
       if (typeof v === "boolean") return v;
       return !!legacy?.[item.id];
+    case "text":
+      return typeof v === "string" && v.trim().length > 0;
     case "money":
       return typeof v === "number" && !Number.isNaN(v);
     case "pdv_opening": {
