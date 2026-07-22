@@ -947,29 +947,44 @@ function AnswerRow({
       <div className="flex flex-col gap-2">
         <Label className="text-sm">{item.question}</Label>
         <div className="grid grid-cols-3 gap-2">
-          {Array.from({ length: n }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
-              <Input
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                placeholder="°C"
-                disabled={locked}
-                defaultValue={ans.temps[i] ?? ""}
-                onBlur={(e) => {
-                  const temps = Array.from({ length: n }, (_, j) =>
-                    j === i ? e.target.value : ans.temps[j] ?? "",
-                  );
-                  onAnswer({ temps });
-                }}
-              />
-            </div>
-          ))}
+          {Array.from({ length: n }).map((_, i) => {
+            const raw = ans.temps[i];
+            const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
+            const unsafe = Number.isFinite(num) && num > -18;
+            return (
+              <div key={i} className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
+                <Input
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  placeholder="°C"
+                  disabled={locked}
+                  defaultValue={raw ?? ""}
+                  className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
+                  onBlur={(e) => {
+                    const temps = Array.from({ length: n }, (_, j) =>
+                      j === i ? e.target.value : ans.temps[j] ?? "",
+                    );
+                    onAnswer({ temps });
+                  }}
+                />
+                {unsafe && (
+                  <span className="text-[10px] text-destructive font-medium">
+                    ⚠ Acima de -18°C
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
+        <span className="text-[10px] text-muted-foreground">
+          Temperatura ideal: -18°C ou menor. Valores negativos são aceitos.
+        </span>
       </div>
     );
   }
+
 
   if (item.response_type === "photo_upload") {
     return (
