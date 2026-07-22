@@ -416,32 +416,40 @@ function DailyChecklistsPage() {
                 : `O caixa foi aberto pelo funcionário com os valores: ${values
                     .map((v, i) => `PDV ${i + 1}: ${fmt(Number(v))}`)
                     .join(", ")}`;
-            // Target owner + managers of this unit (and company owners)
-            const { data: recipients } = await supabase
-              .from("profiles")
-              .select("id,role,unit_id,company_id")
-              .eq("company_id", companyId)
-              .in("role", ["owner", "manager"]);
-            const targets = (recipients ?? []).filter(
-              (p) => p.role === "owner" || p.unit_id === unitId,
+            // Destinatários (owner da empresa + manager da unidade) via RPC SECURITY DEFINER
+            const { data: recipients, error: recipientsError } = await supabase.rpc(
+              "get_pdv_notification_recipients",
+              { _unit_id: unitId },
             );
-            if (targets.length > 0) {
-              await supabase.from("notifications").insert(
-                targets.map((p) => ({
-                  company_id: companyId,
+            if (recipientsError) {
+              console.error("[notifications] Falha ao buscar destinatários", recipientsError);
+              toast.error("Não foi possível identificar os gestores para notificar.");
+            } else if ((recipients ?? []).length > 0) {
+              const rows = (recipients as Array<{ profile_id: string; company_id: string }>).map(
+                (p) => ({
+                  company_id: p.company_id ?? companyId,
                   unit_id: unitId,
-                  profile_id: p.id,
+                  profile_id: p.profile_id,
                   title: `Abertura de Caixa - ${unitName}`,
                   message,
                   is_read: false,
-                })),
+                }),
               );
+              const { error: insertError } = await supabase.from("notifications").insert(rows);
+              if (insertError) {
+                console.error("[notifications] Falha ao inserir notificações", insertError);
+                toast.error("Falha ao enviar notificações de abertura de caixa.");
+              }
+            } else {
+              console.warn("[notifications] Nenhum owner/manager encontrado para a unidade");
             }
           }
         }
       } catch (err) {
         console.error("[notifications] Falha ao registrar abertura de caixa", err);
+        toast.error("Erro inesperado ao notificar abertura de caixa.");
       }
+
     },
     onSuccess: () => {
       toast.success("Checklist finalizado!");
