@@ -151,6 +151,8 @@ const FRANCHISE_DEFAULTS: {
     title: "Recebimento de Mercadoria",
     category: "Estoque",
     items: [
+      { question: "Número da Nota Fiscal", response_type: "text" },
+      { question: "Nome do Motorista", response_type: "text" },
       { question: "Conferencia de nota", response_type: "photo_upload" },
       { question: "Organização de produtos no estoque", response_type: "boolean" },
       { question: "Abertura de produtos novos", response_type: "boolean" },
