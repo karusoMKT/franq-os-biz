@@ -681,96 +681,109 @@ function DailyChecklistsPage() {
 
   return (
     <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
-      {canManage && unit && (
-        <UnitConfigCard
-          unit={unit}
-          onSaved={() => {
-            queryClient.invalidateQueries({ queryKey: unitKey });
-          }}
-        />
-      )}
+      <Tabs defaultValue="new" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="new">Nova Rotina</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
+        </TabsList>
 
-      {canManage && (
-        <Button
-          size="sm"
-          className="w-fit gap-1.5"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus size={14} />
-          Criar Nova Rotina
-        </Button>
-      )}
+        <TabsContent value="new" className="space-y-4 mt-4">
+          {canManage && unit && (
+            <UnitConfigCard
+              unit={unit}
+              onSaved={() => {
+                queryClient.invalidateQueries({ queryKey: unitKey });
+              }}
+            />
+          )}
 
-      {loadingLists || loadingExecs ? (
-        <div className="space-y-2">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      ) : !checklists?.length ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground">
-          Nenhum modelo de checklist cadastrado ainda.
-        </Card>
-      ) : (
-        <ul className="space-y-2">
-          {checklists.map((c) => {
-            const exec = execByChecklist.get(c.id);
-            const total = c.items.length;
-            const done = exec
-              ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items, unit ?? null)).length
-              : 0;
-            const completed = exec?.status === "completed";
-            return (
-              <li key={c.id}>
-                <Card className="p-3 flex items-center gap-3">
-                  <div
-                    className={`h-10 w-10 rounded-md flex items-center justify-center ${
-                      completed ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {completed ? <CheckCircle2 size={20} /> : <ClipboardCheck size={20} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium truncate">{c.title}</div>
-                      {c.is_critical && (
-                        <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
-                          crítico
-                        </Badge>
+          {canManage && (
+            <Button
+              size="sm"
+              className="w-fit gap-1.5"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus size={14} />
+              Criar Nova Rotina
+            </Button>
+          )}
+
+          {loadingLists || loadingExecs ? (
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : !checklists?.length ? (
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              Nenhum modelo de checklist cadastrado ainda.
+            </Card>
+          ) : (
+            <ul className="space-y-2">
+              {checklists.map((c) => {
+                const exec = execByChecklist.get(c.id);
+                const total = c.items.length;
+                const done = exec
+                  ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items, unit ?? null)).length
+                  : 0;
+                const completed = exec?.status === "completed";
+                return (
+                  <li key={c.id}>
+                    <Card className="p-3 flex items-center gap-3">
+                      <div
+                        className={`h-10 w-10 rounded-md flex items-center justify-center ${
+                          completed ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {completed ? <CheckCircle2 size={20} /> : <ClipboardCheck size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium truncate">{c.title}</div>
+                          {c.is_critical && (
+                            <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
+                              crítico
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {c.category ?? "Sem categoria"} ·{" "}
+                          {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
+                        </div>
+                      </div>
+                      {canManage && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Gerenciar perguntas"
+                          onClick={() => setManageId(c.id)}
+                        >
+                          <Settings2 size={16} />
+                        </Button>
                       )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.category ?? "Sem categoria"} ·{" "}
-                      {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
-                    </div>
-                  </div>
-                  {canManage && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      title="Gerenciar perguntas"
-                      onClick={() => setManageId(c.id)}
-                    >
-                      <Settings2 size={16} />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant={completed ? "outline" : "default"}
-                    disabled={startMutation.isPending}
-                    onClick={() => {
-                      if (exec) setActiveId(exec.id);
-                      else startMutation.mutate(c);
-                    }}
-                  >
-                    {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
-                  </Button>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                      <Button
+                        size="sm"
+                        variant={completed ? "outline" : "default"}
+                        disabled={startMutation.isPending}
+                        onClick={() => {
+                          if (exec) setActiveId(exec.id);
+                          else startMutation.mutate(c);
+                        }}
+                      >
+                        {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
+                      </Button>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <HistoryTab profile={profile} checklists={checklists ?? []} unit={unit ?? null} />
+        </TabsContent>
+      </Tabs>
 
       <ManageItemsDialog
         checklist={manageChecklist}
