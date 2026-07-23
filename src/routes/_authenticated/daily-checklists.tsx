@@ -40,6 +40,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
@@ -680,96 +681,109 @@ function DailyChecklistsPage() {
 
   return (
     <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
-      {canManage && unit && (
-        <UnitConfigCard
-          unit={unit}
-          onSaved={() => {
-            queryClient.invalidateQueries({ queryKey: unitKey });
-          }}
-        />
-      )}
+      <Tabs defaultValue="new" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="new">Nova Rotina</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
+        </TabsList>
 
-      {canManage && (
-        <Button
-          size="sm"
-          className="w-fit gap-1.5"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus size={14} />
-          Criar Nova Rotina
-        </Button>
-      )}
+        <TabsContent value="new" className="space-y-4 mt-4">
+          {canManage && unit && (
+            <UnitConfigCard
+              unit={unit}
+              onSaved={() => {
+                queryClient.invalidateQueries({ queryKey: unitKey });
+              }}
+            />
+          )}
 
-      {loadingLists || loadingExecs ? (
-        <div className="space-y-2">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      ) : !checklists?.length ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground">
-          Nenhum modelo de checklist cadastrado ainda.
-        </Card>
-      ) : (
-        <ul className="space-y-2">
-          {checklists.map((c) => {
-            const exec = execByChecklist.get(c.id);
-            const total = c.items.length;
-            const done = exec
-              ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items, unit ?? null)).length
-              : 0;
-            const completed = exec?.status === "completed";
-            return (
-              <li key={c.id}>
-                <Card className="p-3 flex items-center gap-3">
-                  <div
-                    className={`h-10 w-10 rounded-md flex items-center justify-center ${
-                      completed ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {completed ? <CheckCircle2 size={20} /> : <ClipboardCheck size={20} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium truncate">{c.title}</div>
-                      {c.is_critical && (
-                        <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
-                          crítico
-                        </Badge>
+          {canManage && (
+            <Button
+              size="sm"
+              className="w-fit gap-1.5"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus size={14} />
+              Criar Nova Rotina
+            </Button>
+          )}
+
+          {loadingLists || loadingExecs ? (
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : !checklists?.length ? (
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              Nenhum modelo de checklist cadastrado ainda.
+            </Card>
+          ) : (
+            <ul className="space-y-2">
+              {checklists.map((c) => {
+                const exec = execByChecklist.get(c.id);
+                const total = c.items.length;
+                const done = exec
+                  ? c.items.filter((i) => isAnswered(i, exec.answers_data, exec.checked_items, unit ?? null)).length
+                  : 0;
+                const completed = exec?.status === "completed";
+                return (
+                  <li key={c.id}>
+                    <Card className="p-3 flex items-center gap-3">
+                      <div
+                        className={`h-10 w-10 rounded-md flex items-center justify-center ${
+                          completed ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {completed ? <CheckCircle2 size={20} /> : <ClipboardCheck size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium truncate">{c.title}</div>
+                          {c.is_critical && (
+                            <Badge variant="destructive" className="text-[10px] py-0 px-1.5">
+                              crítico
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {c.category ?? "Sem categoria"} ·{" "}
+                          {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
+                        </div>
+                      </div>
+                      {canManage && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Gerenciar perguntas"
+                          onClick={() => setManageId(c.id)}
+                        >
+                          <Settings2 size={16} />
+                        </Button>
                       )}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.category ?? "Sem categoria"} ·{" "}
-                      {exec ? `${done}/${total}` : `${total} ${total === 1 ? "item" : "itens"}`}
-                    </div>
-                  </div>
-                  {canManage && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      title="Gerenciar perguntas"
-                      onClick={() => setManageId(c.id)}
-                    >
-                      <Settings2 size={16} />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant={completed ? "outline" : "default"}
-                    disabled={startMutation.isPending}
-                    onClick={() => {
-                      if (exec) setActiveId(exec.id);
-                      else startMutation.mutate(c);
-                    }}
-                  >
-                    {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
-                  </Button>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                      <Button
+                        size="sm"
+                        variant={completed ? "outline" : "default"}
+                        disabled={startMutation.isPending}
+                        onClick={() => {
+                          if (exec) setActiveId(exec.id);
+                          else startMutation.mutate(c);
+                        }}
+                      >
+                        {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
+                      </Button>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <HistoryTab profile={profile} checklists={checklists ?? []} unit={unit ?? null} />
+        </TabsContent>
+      </Tabs>
 
       <ManageItemsDialog
         checklist={manageChecklist}
@@ -1491,4 +1505,333 @@ function ManageItemsDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type HistoryRow = {
+  id: string;
+  checklist_id: string;
+  unit_id: string;
+  user_id: string | null;
+  status: string;
+  execution_date: string;
+  completed_at: string | null;
+  answers_data: AnswersData;
+  checked_items: Record<string, boolean>;
+};
+
+function HistoryTab({
+  profile,
+  checklists,
+  unit,
+}: {
+  profile: NonNullable<ReturnType<typeof useProfile>["profile"]>;
+  checklists: Checklist[];
+  unit: UnitConfig | null;
+}) {
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    enabled: !!profile,
+    queryKey: ["routines-history", profile.role, profile.company_id, profile.unit_id, profile.user_id],
+    queryFn: async () => {
+      let q = supabase
+        .from("checklist_executions")
+        .select("id,checklist_id,unit_id,user_id,status,execution_date,completed_at,answers_data,checked_items")
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(200);
+
+      if (profile.role === "manager" && profile.unit_id) {
+        q = q.eq("unit_id", profile.unit_id);
+      } else if (profile.role === "employee") {
+        const { data: authData } = await supabase.auth.getUser();
+        const uid = authData?.user?.id;
+        if (!uid) return { rows: [], units: new Map(), users: new Map() };
+        q = q.eq("user_id", uid);
+      }
+
+      const { data: rows, error } = await q;
+      if (error) throw error;
+      const list = (rows ?? []).map((r: any) => ({
+        ...r,
+        answers_data: (r.answers_data ?? {}) as AnswersData,
+        checked_items: (r.checked_items ?? {}) as Record<string, boolean>,
+      })) as HistoryRow[];
+
+      const unitIds = Array.from(new Set(list.map((r) => r.unit_id))).filter(Boolean);
+      const userIds = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean))) as string[];
+
+      const [unitsRes, usersRes] = await Promise.all([
+        unitIds.length
+          ? supabase.from("units").select("id,name").in("id", unitIds)
+          : Promise.resolve({ data: [], error: null } as any),
+        userIds.length
+          ? supabase.from("profiles").select("user_id,name,email").in("user_id", userIds)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+
+      const unitsMap = new Map<string, string>();
+      (unitsRes.data ?? []).forEach((u: any) => unitsMap.set(u.id, u.name));
+      const usersMap = new Map<string, string>();
+      (usersRes.data ?? []).forEach((p: any) =>
+        usersMap.set(p.user_id, p.name || p.email || "—"),
+      );
+
+      return { rows: list, units: unitsMap, users: usersMap };
+    },
+  });
+
+  const rows = data?.rows ?? [];
+  const detail = rows.find((r) => r.id === detailId) ?? null;
+  const detailChecklist = detail ? checklists.find((c) => c.id === detail.checklist_id) ?? null : null;
+
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        <>
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </>
+      ) : rows.length === 0 ? (
+        <Card className="p-6 text-center text-sm text-muted-foreground">
+          Nenhuma rotina finalizada ainda.
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => {
+            const cl = checklists.find((c) => c.id === r.checklist_id);
+            const unitName = data?.units.get(r.unit_id) ?? "—";
+            const userName = r.user_id ? data?.users.get(r.user_id) ?? "—" : "—";
+            return (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => setDetailId(r.id)}
+                  className="w-full text-left"
+                >
+                  <Card className="p-3 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-md flex items-center justify-center bg-green-100 text-green-700 shrink-0">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="text-sm font-medium truncate">
+                          {cl?.title ?? "Rotina"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(r.completed_at)}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {userName} · {unitName}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Dialog open={!!detail} onOpenChange={(v) => !v && setDetailId(null)}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailChecklist?.title ?? "Detalhes da rotina"}
+            </DialogTitle>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md bg-slate-50 border p-3 space-y-1 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Data:</span>{" "}
+                  {formatDateTime(detail.completed_at)}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Executado por:</span>{" "}
+                  {detail.user_id ? data?.users.get(detail.user_id) ?? "—" : "—"}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Unidade:</span>{" "}
+                  {data?.units.get(detail.unit_id) ?? "—"}
+                </div>
+              </div>
+
+              <HistoryDetailBody
+                detail={detail}
+                checklist={detailChecklist}
+                unit={unit}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailId(null)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function formatBRL(v: unknown) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function HistoryDetailBody({
+  detail,
+  checklist,
+  unit,
+}: {
+  detail: HistoryRow;
+  checklist: Checklist | null;
+  unit: UnitConfig | null;
+}) {
+  if (!checklist) {
+    return (
+      <div className="text-xs text-muted-foreground">
+        Modelo da rotina não encontrado. Dados brutos:
+        <pre className="mt-2 bg-slate-50 p-2 rounded overflow-x-auto text-[10px]">
+          {JSON.stringify(detail.answers_data, null, 2)}
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {checklist.items.map((item) => {
+        const v = detail.answers_data?.[item.id];
+        return (
+          <li key={item.id} className="border rounded-md p-3 space-y-1.5">
+            <div className="text-xs font-medium">{item.question}</div>
+            <div className="text-sm">
+              {renderAnswer(item, v, detail, unit)}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function renderAnswer(
+  item: ChecklistItem,
+  v: AnswerValue | undefined,
+  detail: HistoryRow,
+  unit: UnitConfig | null,
+) {
+  switch (item.response_type) {
+    case "boolean": {
+      const b = typeof v === "boolean" ? v : !!detail.checked_items?.[item.id];
+      return (
+        <span className={b ? "text-green-700" : "text-muted-foreground"}>
+          {b ? "✓ Sim" : "— Não"}
+        </span>
+      );
+    }
+    case "text":
+      return <span>{typeof v === "string" && v ? v : <span className="text-muted-foreground">—</span>}</span>;
+    case "money":
+      return typeof v === "number" ? <span>{formatBRL(v)}</span> : <span className="text-muted-foreground">—</span>;
+    case "pdv_opening": {
+      const ans = (v as PdvOpeningAns) ?? { values: [] };
+      if (!ans.values?.length) return <span className="text-muted-foreground">Não preenchido</span>;
+      return (
+        <ul className="space-y-0.5">
+          {ans.values.map((val, i) => (
+            <li key={i} className="flex justify-between text-xs">
+              <span className="text-muted-foreground">PDV {i + 1}</span>
+              <span className="font-medium">{formatBRL(val)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    case "pdv_closing": {
+      const ans = (v as PdvClosingAns) ?? { confirmed: [] };
+      if (!ans.confirmed?.length) return <span className="text-muted-foreground">Não preenchido</span>;
+      return (
+        <ul className="space-y-0.5">
+          {ans.confirmed.map((c, i) => (
+            <li key={i} className="flex justify-between text-xs">
+              <span className="text-muted-foreground">PDV {i + 1}</span>
+              <span className={c ? "text-green-700" : "text-amber-700"}>
+                {c ? "✓ Fechado" : "— Pendente"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    case "freezer_temperatures": {
+      const ans = (v as FreezerTempsAns) ?? { temps: [] };
+      if (!ans.temps?.length) return <span className="text-muted-foreground">Não preenchido</span>;
+      return (
+        <ul className="space-y-0.5">
+          {ans.temps.map((t, i) => {
+            const num = Number(t);
+            const unsafe = Number.isFinite(num) && num > -18;
+            return (
+              <li key={i} className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Freezer {i + 1}</span>
+                <span className={unsafe ? "text-destructive font-medium" : ""}>
+                  {t === "" || t === null || t === undefined
+                    ? "—"
+                    : `${Number(t).toFixed(1)}°C`}
+                  {unsafe && " ⚠"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+    case "photo_upload": {
+      const ans = v as PhotoAns | null;
+      if (!ans?.url) return <span className="text-muted-foreground">Sem foto</span>;
+      return (
+        <a href={ans.url} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={ans.url}
+            alt={item.question}
+            className="w-full max-h-64 object-contain rounded border bg-slate-50"
+          />
+        </a>
+      );
+    }
+    case "freezer_grid": {
+      const grid = (v as { count: number; temps: (string | number)[] }) ?? { count: 0, temps: [] };
+      if (!grid.count) return <span className="text-muted-foreground">Não preenchido</span>;
+      return (
+        <ul className="space-y-0.5">
+          {grid.temps.map((t, i) => (
+            <li key={i} className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Freezer {i + 1}</span>
+              <span>{t}°C</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+  void unit;
+  return <span className="text-muted-foreground">—</span>;
 }
