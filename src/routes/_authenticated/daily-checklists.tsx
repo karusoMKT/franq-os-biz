@@ -40,6 +40,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
