@@ -1598,13 +1598,6 @@ function HistoryDetailBody({
             ))}
           </div>
         )}
-
-        <div className="text-xs text-muted-foreground mt-4">
-          Dados técnicos:
-          <pre className="mt-2 bg-slate-50 p-2 rounded overflow-x-auto text-[10px]">
-            {JSON.stringify(detail.answers_data, null, 2)}
-          </pre>
-        </div>
       </div>
     );
   }
