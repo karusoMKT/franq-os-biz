@@ -26,20 +26,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnitContext } from "@/hooks/use-unit-context";
 
@@ -176,7 +164,6 @@ const canonicalIndex = (title: string) => {
   return i === -1 ? 999 : i;
 };
 
-
 function isAnswered(
   item: ChecklistItem,
   answers: AnswersData,
@@ -211,10 +198,7 @@ function isAnswered(
       const n = unit?.freezer_count ?? 0;
       if (n <= 0) return false;
       const ans = (v as FreezerTempsAns) ?? { temps: [] };
-      return (
-        ans.temps.length === n &&
-        ans.temps.every((t) => t !== "" && t !== null && t !== undefined)
-      );
+      return ans.temps.length === n && ans.temps.every((t) => t !== "" && t !== null && t !== undefined);
     }
     case "photo_upload": {
       const ans = v as PhotoAns | null;
@@ -244,7 +228,7 @@ function DailyChecklistsPage() {
   const [newChecklistName, setNewChecklistName] = useState("");
 
   const companyId = profile?.company_id ?? null;
-  const unitId = profile?.role === "owner" ? selectedUnitId : profile?.unit_id ?? null;
+  const unitId = profile?.role === "owner" ? selectedUnitId : (profile?.unit_id ?? null);
   const canManage = profile?.role === "owner" || profile?.role === "manager";
 
   const checklistsKey = ["daily-checklists", companyId] as const;
@@ -290,7 +274,6 @@ function DailyChecklistsPage() {
     },
   });
 
-
   const { data: todaysExecs, isLoading: loadingExecs } = useQuery({
     enabled: !!unitId,
     queryKey: ["daily-executions", unitId, today()],
@@ -312,9 +295,7 @@ function DailyChecklistsPage() {
   const startMutation = useMutation({
     mutationFn: async (checklist: Checklist) => {
       if (!unitId) throw new Error("Usuário sem unidade vinculada.");
-      const existing = todaysExecs?.find(
-        (e) => e.checklist_id === checklist.id && e.status === "in_progress",
-      );
+      const existing = todaysExecs?.find((e) => e.checklist_id === checklist.id && e.status === "in_progress");
       if (existing) return existing;
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -346,12 +327,7 @@ function DailyChecklistsPage() {
   });
 
   const answerMutation = useMutation({
-    mutationFn: async (args: {
-      exec: Execution;
-      itemId: string;
-      value: AnswerValue;
-      alsoChecked?: boolean;
-    }) => {
+    mutationFn: async (args: { exec: Execution; itemId: string; value: AnswerValue; alsoChecked?: boolean }) => {
       const nextAnswers = { ...(args.exec.answers_data ?? {}), [args.itemId]: args.value };
       const patch: any = { answers_data: nextAnswers };
       if (typeof args.alsoChecked === "boolean") {
@@ -393,8 +369,7 @@ function DailyChecklistsPage() {
       if (ctx?.prev) queryClient.setQueryData(["daily-executions", unitId, today()], ctx.prev);
       toast.error(e.message ?? "Erro ao salvar resposta");
     },
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["daily-executions", unitId, today()] }),
   });
 
   const finishMutation = useMutation({
@@ -415,8 +390,7 @@ function DailyChecklistsPage() {
             (v) => v !== "" && v !== null && v !== undefined && !Number.isNaN(Number(v)),
           );
           if (values.length > 0) {
-            const fmt = (n: number) =>
-              n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
             const unitName = unit?.name ?? "Unidade";
             const message =
               values.length === 1
@@ -425,24 +399,21 @@ function DailyChecklistsPage() {
                     .map((v, i) => `PDV ${i + 1}: ${fmt(Number(v))}`)
                     .join(", ")}`;
             // Destinatários (owner da empresa + manager da unidade) via RPC SECURITY DEFINER
-            const { data: recipients, error: recipientsError } = await supabase.rpc(
-              "get_pdv_notification_recipients",
-              { _unit_id: unitId },
-            );
+            const { data: recipients, error: recipientsError } = await supabase.rpc("get_pdv_notification_recipients", {
+              _unit_id: unitId,
+            });
             if (recipientsError) {
               console.error("[notifications] Falha ao buscar destinatários", recipientsError);
               toast.error("Não foi possível identificar os gestores para notificar.");
             } else if ((recipients ?? []).length > 0) {
-              const rows = (recipients as Array<{ profile_id: string; company_id: string }>).map(
-                (p) => ({
-                  company_id: p.company_id ?? companyId,
-                  unit_id: unitId,
-                  profile_id: p.profile_id,
-                  title: `Abertura de Caixa - ${unitName}`,
-                  message,
-                  is_read: false,
-                }),
-              );
+              const rows = (recipients as Array<{ profile_id: string; company_id: string }>).map((p) => ({
+                company_id: p.company_id ?? companyId,
+                unit_id: unitId,
+                profile_id: p.profile_id,
+                title: `Abertura de Caixa - ${unitName}`,
+                message,
+                is_read: false,
+              }));
               const { error: insertError } = await supabase.from("notifications").insert(rows);
               if (insertError) {
                 console.error("[notifications] Falha ao inserir notificações", insertError);
@@ -461,9 +432,7 @@ function DailyChecklistsPage() {
       // Alertas de Temperatura (freezer_temperatures)
       try {
         const checklist = checklists?.find((c) => c.id === exec.checklist_id);
-        const freezerItem = checklist?.items.find(
-          (i) => i.response_type === "freezer_temperatures",
-        );
+        const freezerItem = checklist?.items.find((i) => i.response_type === "freezer_temperatures");
         if (freezerItem && companyId && unitId) {
           const ans = (exec.answers_data?.[freezerItem.id] as FreezerTempsAns | undefined) ?? null;
           const temps = ans?.temps ?? [];
@@ -475,9 +444,7 @@ function DailyChecklistsPage() {
           });
           if (unsafe.length > 0) {
             const unitName = unit?.name ?? "Unidade";
-            const details = unsafe
-              .map((u) => `Freezer ${u.idx + 1}: ${u.temp.toFixed(1)}°C`)
-              .join(", ");
+            const details = unsafe.map((u) => `Freezer ${u.idx + 1}: ${u.temp.toFixed(1)}°C`).join(", ");
 
             // 1) Ocorrências (uma por freezer com problema)
             const occRows = unsafe.map((u) => ({
@@ -495,27 +462,22 @@ function DailyChecklistsPage() {
             }
 
             // 2) Notificar APENAS gerentes da unidade
-            const { data: managers, error: mgrError } = await supabase.rpc(
-              "get_unit_manager_recipients",
-              { _unit_id: unitId },
-            );
+            const { data: managers, error: mgrError } = await supabase.rpc("get_unit_manager_recipients", {
+              _unit_id: unitId,
+            });
             if (mgrError) {
               console.error("[notifications] Falha ao buscar gerentes", mgrError);
               toast.error("Não foi possível notificar os gerentes.");
             } else if ((managers ?? []).length > 0) {
-              const rows = (managers as Array<{ profile_id: string; company_id: string }>).map(
-                (p) => ({
-                  company_id: p.company_id ?? companyId,
-                  unit_id: unitId,
-                  profile_id: p.profile_id,
-                  title: `Alerta de Temperatura - ${unitName}`,
-                  message: `Temperatura acima do limite (-18°C): ${details}`,
-                  is_read: false,
-                }),
-              );
-              const { error: insertError } = await supabase
-                .from("notifications")
-                .insert(rows);
+              const rows = (managers as Array<{ profile_id: string; company_id: string }>).map((p) => ({
+                company_id: p.company_id ?? companyId,
+                unit_id: unitId,
+                profile_id: p.profile_id,
+                title: `Alerta de Temperatura - ${unitName}`,
+                message: `Temperatura acima do limite (-18°C): ${details}`,
+                is_read: false,
+              }));
+              const { error: insertError } = await supabase.from("notifications").insert(rows);
               if (insertError) {
                 console.error("[notifications] Falha ao inserir alertas", insertError);
                 toast.error("Falha ao enviar alertas de temperatura.");
@@ -526,8 +488,6 @@ function DailyChecklistsPage() {
       } catch (err) {
         console.error("[occurrences] Falha ao processar temperaturas", err);
       }
-
-
     },
     onSuccess: () => {
       toast.success("Checklist finalizado!");
@@ -564,7 +524,6 @@ function DailyChecklistsPage() {
     onError: (e: any) => toast.error(e.message ?? "Erro ao criar rotina"),
   });
 
-
   const execByChecklist = useMemo(() => {
     const map = new Map<string, Execution>();
     (todaysExecs ?? []).forEach((e) => {
@@ -574,13 +533,11 @@ function DailyChecklistsPage() {
     return map;
   }, [todaysExecs]);
 
-  const activeExec = activeId ? (todaysExecs ?? []).find((e) => e.id === activeId) ?? null : null;
+  const activeExec = activeId ? ((todaysExecs ?? []).find((e) => e.id === activeId) ?? null) : null;
   const activeChecklist = activeExec
-    ? (checklists ?? []).find((c) => c.id === activeExec.checklist_id) ?? null
+    ? ((checklists ?? []).find((c) => c.id === activeExec.checklist_id) ?? null)
     : null;
-  const manageChecklist = manageId
-    ? (checklists ?? []).find((c) => c.id === manageId) ?? null
-    : null;
+  const manageChecklist = manageId ? ((checklists ?? []).find((c) => c.id === manageId) ?? null) : null;
 
   if (loading || !profile) return <Loading />;
 
@@ -675,9 +632,7 @@ function DailyChecklistsPage() {
 
   const dateStr = today().split("-").reverse().join("/");
   const subtitle =
-    selectedUnit && profile.role === "owner"
-      ? `${selectedUnit.name} · ${dateStr}`
-      : `Checklists de hoje · ${dateStr}`;
+    selectedUnit && profile.role === "owner" ? `${selectedUnit.name} · ${dateStr}` : `Checklists de hoje · ${dateStr}`;
 
   return (
     <MobileShell profile={profile} title="Rotina Diária" subtitle={subtitle}>
@@ -698,11 +653,7 @@ function DailyChecklistsPage() {
           )}
 
           {canManage && (
-            <Button
-              size="sm"
-              className="w-fit gap-1.5"
-              onClick={() => setCreateOpen(true)}
-            >
+            <Button size="sm" className="w-fit gap-1.5" onClick={() => setCreateOpen(true)}>
               <Plus size={14} />
               Criar Nova Rotina
             </Button>
@@ -792,7 +743,13 @@ function DailyChecklistsPage() {
         onChanged={() => queryClient.invalidateQueries({ queryKey: checklistsKey })}
       />
 
-      <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setNewChecklistName(""); }}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(v) => {
+          setCreateOpen(v);
+          if (!v) setNewChecklistName("");
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Criar Nova Rotina</DialogTitle>
@@ -813,7 +770,9 @@ function DailyChecklistsPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
             <Button
               disabled={!newChecklistName.trim() || createChecklistMutation.isPending}
               onClick={() => createChecklistMutation.mutate(newChecklistName.trim())}
@@ -827,13 +786,7 @@ function DailyChecklistsPage() {
   );
 }
 
-function UnitConfigCard({
-  unit,
-  onSaved,
-}: {
-  unit: UnitConfig;
-  onSaved: () => void;
-}) {
+function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => void }) {
   const [pdv, setPdv] = useState<string>(String(unit.pdv_count ?? ""));
   const [freezer, setFreezer] = useState<string>(String(unit.freezer_count ?? ""));
 
@@ -841,10 +794,7 @@ function UnitConfigCard({
     mutationFn: async () => {
       const pdvN = Math.max(0, Math.min(50, parseInt(pdv, 10) || 0));
       const frzN = Math.max(0, Math.min(50, parseInt(freezer, 10) || 0));
-      const { error } = await supabase
-        .from("units")
-        .update({ pdv_count: pdvN, freezer_count: frzN })
-        .eq("id", unit.id);
+      const { error } = await supabase.from("units").update({ pdv_count: pdvN, freezer_count: frzN }).eq("id", unit.id);
       if (error) throw error;
       return { pdvN, frzN };
     },
@@ -855,42 +805,22 @@ function UnitConfigCard({
     onError: (e: any) => toast.error(e.message ?? "Erro ao salvar"),
   });
 
-  const dirty =
-    String(unit.pdv_count ?? "") !== pdv || String(unit.freezer_count ?? "") !== freezer;
+  const dirty = String(unit.pdv_count ?? "") !== pdv || String(unit.freezer_count ?? "") !== freezer;
 
   return (
     <Card className="p-3 space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">
-        Configuração da unidade — {unit.name}
-      </div>
+      <div className="text-xs font-medium text-muted-foreground">Configuração da unidade — {unit.name}</div>
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
           <Label className="text-[11px]">Qtd. PDVs</Label>
-          <Input
-            type="number"
-            min="0"
-            max="50"
-            value={pdv}
-            onChange={(e) => setPdv(e.target.value)}
-          />
+          <Input type="number" min="0" max="50" value={pdv} onChange={(e) => setPdv(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-[11px]">Qtd. Freezers</Label>
-          <Input
-            type="number"
-            min="0"
-            max="50"
-            value={freezer}
-            onChange={(e) => setFreezer(e.target.value)}
-          />
+          <Input type="number" min="0" max="50" value={freezer} onChange={(e) => setFreezer(e.target.value)} />
         </div>
       </div>
-      <Button
-        size="sm"
-        className="w-full"
-        disabled={!dirty || save.isPending}
-        onClick={() => save.mutate()}
-      >
+      <Button size="sm" className="w-full" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
         <Save size={14} className="mr-1.5" />
         Salvar configuração
       </Button>
@@ -961,9 +891,7 @@ function AnswerRow({
     }
 
     // Checkbox expands to N inputs. "Checked" = array has been initialized with N slots.
-    const checked = isOpening
-      ? (ans as PdvOpeningAns).values.length > 0
-      : (ans as PdvClosingAns).confirmed.length > 0;
+    const checked = isOpening ? (ans as PdvOpeningAns).values.length > 0 : (ans as PdvClosingAns).confirmed.length > 0;
 
     return (
       <div className="flex flex-col gap-2">
@@ -1073,16 +1001,12 @@ function AnswerRow({
                   className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
                   onBlur={(e) => {
                     const temps = Array.from({ length: n }, (_, j) =>
-                      j === i ? e.target.value : ans.temps[j] ?? "",
+                      j === i ? e.target.value : (ans.temps[j] ?? ""),
                     );
                     onAnswer({ temps });
                   }}
                 />
-                {unsafe && (
-                  <span className="text-[10px] text-destructive font-medium">
-                    ⚠ Acima de -18°C
-                  </span>
-                )}
+                {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
               </div>
             );
           })}
@@ -1093,7 +1017,6 @@ function AnswerRow({
       </div>
     );
   }
-
 
   if (item.response_type === "text") {
     const val = typeof current === "string" ? current : "";
@@ -1124,7 +1047,6 @@ function AnswerRow({
       />
     );
   }
-
 
   if (item.response_type === "freezer_grid") {
     // legacy
@@ -1180,19 +1102,11 @@ function AnswerRow({
   }
 
   // boolean
-  const checked =
-    typeof current === "boolean" ? current : !!exec.checked_items?.[item.id];
+  const checked = typeof current === "boolean" ? current : !!exec.checked_items?.[item.id];
   return (
     <div className="flex items-start gap-3">
-      <Checkbox
-        checked={checked}
-        disabled={locked}
-        onCheckedChange={(v) => onAnswer(!!v, !!v)}
-        className="mt-0.5"
-      />
-      <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>
-        {item.question}
-      </span>
+      <Checkbox checked={checked} disabled={locked} onCheckedChange={(v) => onAnswer(!!v, !!v)} className="mt-0.5" />
+      <span className={`text-sm ${checked ? "line-through text-muted-foreground" : ""}`}>{item.question}</span>
     </div>
   );
 }
@@ -1278,12 +1192,7 @@ function PhotoUploadRow({
             className="w-full max-h-64 object-contain rounded-lg border bg-slate-50"
           />
           <div className="flex flex-col gap-2">
-            <Button
-              size="lg"
-              className="w-full"
-              disabled={uploading}
-              onClick={confirmUpload}
-            >
+            <Button size="lg" className="w-full" disabled={uploading} onClick={confirmUpload}>
               {uploading ? (
                 <>
                   <Loader2 size={18} className="animate-spin mr-2" /> Enviando...
@@ -1294,12 +1203,7 @@ function PhotoUploadRow({
                 </>
               )}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={uploading}
-              onClick={() => setPendingFile(null)}
-            >
+            <Button variant="outline" size="sm" disabled={uploading} onClick={() => setPendingFile(null)}>
               Trocar foto
             </Button>
           </div>
@@ -1317,23 +1221,13 @@ function PhotoUploadRow({
             <CheckCircle2 size={14} /> Foto enviada
           </span>
           {!locked && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => fileRef.current?.click()}
-            >
+            <Button variant="outline" size="sm" className="w-fit" onClick={() => fileRef.current?.click()}>
               <Camera size={14} className="mr-1.5" /> Substituir foto
             </Button>
           )}
         </div>
       ) : (
-        <Button
-          size="lg"
-          className="w-full h-16 text-base"
-          disabled={locked}
-          onClick={() => fileRef.current?.click()}
-        >
+        <Button size="lg" className="w-full h-16 text-base" disabled={locked} onClick={() => fileRef.current?.click()}>
           <Camera size={22} className="mr-2" /> Tirar Foto / Anexar Canhoto
         </Button>
       )}
@@ -1371,14 +1265,12 @@ function ManageItemsDialog({
   const addMutation = useMutation({
     mutationFn: async (args: { question: string; response_type: ResponseType }) => {
       if (!checklist) throw new Error("Checklist inválido");
-      const { error } = await supabase
-        .from("checklist_items")
-        .insert({
-          checklist_id: checklist.id,
-          question: args.question,
-          required: false,
-          response_type: args.response_type,
-        } as any);
+      const { error } = await supabase.from("checklist_items").insert({
+        checklist_id: checklist.id,
+        question: args.question,
+        required: false,
+        response_type: args.response_type,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1423,9 +1315,7 @@ function ManageItemsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            Gerenciar Perguntas{checklist ? ` — ${checklist.title}` : ""}
-          </DialogTitle>
+          <DialogTitle>Gerenciar Perguntas{checklist ? ` — ${checklist.title}` : ""}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -1467,9 +1357,7 @@ function ManageItemsDialog({
 
           <div className="border rounded-md max-h-[50vh] overflow-y-auto">
             {!checklist?.items.length ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">
-                Nenhuma pergunta cadastrada ainda.
-              </div>
+              <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma pergunta cadastrada ainda.</div>
             ) : (
               <ul className="divide-y">
                 {checklist.items.map((item, idx) => (
@@ -1585,9 +1473,7 @@ function HistoryTab({
       const unitsMap = new Map<string, string>();
       (unitsRes.data ?? []).forEach((u: any) => unitsMap.set(u.id, u.name));
       const usersMap = new Map<string, string>();
-      (usersRes.data ?? []).forEach((p: any) =>
-        usersMap.set(p.user_id, p.name || p.email || "—"),
-      );
+      (usersRes.data ?? []).forEach((p: any) => usersMap.set(p.user_id, p.name || p.email || "—"));
 
       return { rows: list, units: unitsMap, users: usersMap };
     },
@@ -1595,7 +1481,7 @@ function HistoryTab({
 
   const rows = data?.rows ?? [];
   const detail = rows.find((r) => r.id === detailId) ?? null;
-  const detailChecklist = detail ? checklists.find((c) => c.id === detail.checklist_id) ?? null : null;
+  const detailChecklist = detail ? (checklists.find((c) => c.id === detail.checklist_id) ?? null) : null;
 
   return (
     <div className="space-y-3">
@@ -1606,34 +1492,24 @@ function HistoryTab({
           <Skeleton className="h-16 w-full" />
         </>
       ) : rows.length === 0 ? (
-        <Card className="p-6 text-center text-sm text-muted-foreground">
-          Nenhuma rotina finalizada ainda.
-        </Card>
+        <Card className="p-6 text-center text-sm text-muted-foreground">Nenhuma rotina finalizada ainda.</Card>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => {
             const cl = checklists.find((c) => c.id === r.checklist_id);
             const unitName = data?.units.get(r.unit_id) ?? "—";
-            const userName = r.user_id ? data?.users.get(r.user_id) ?? "—" : "—";
+            const userName = r.user_id ? (data?.users.get(r.user_id) ?? "—") : "—";
             return (
               <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => setDetailId(r.id)}
-                  className="w-full text-left"
-                >
+                <button type="button" onClick={() => setDetailId(r.id)} className="w-full text-left">
                   <Card className="p-3 hover:bg-slate-50 transition-colors">
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-10 rounded-md flex items-center justify-center bg-green-100 text-green-700 shrink-0">
                         <CheckCircle2 size={20} />
                       </div>
                       <div className="flex-1 min-w-0 space-y-0.5">
-                        <div className="text-sm font-medium truncate">
-                          {cl?.title ?? "Rotina"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatDateTime(r.completed_at)}
-                        </div>
+                        <div className="text-sm font-medium truncate">{cl?.title ?? "Rotina"}</div>
+                        <div className="text-xs text-muted-foreground">{formatDateTime(r.completed_at)}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {userName} · {unitName}
                         </div>
@@ -1650,32 +1526,24 @@ function HistoryTab({
       <Dialog open={!!detail} onOpenChange={(v) => !v && setDetailId(null)}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {detailChecklist?.title ?? "Detalhes da rotina"}
-            </DialogTitle>
+            <DialogTitle>{detailChecklist?.title ?? "Detalhes da rotina"}</DialogTitle>
           </DialogHeader>
           {detail && (
             <div className="space-y-3 text-sm">
               <div className="rounded-md bg-slate-50 border p-3 space-y-1 text-xs">
                 <div>
-                  <span className="text-muted-foreground">Data:</span>{" "}
-                  {formatDateTime(detail.completed_at)}
+                  <span className="text-muted-foreground">Data:</span> {formatDateTime(detail.completed_at)}
                 </div>
                 <div>
                   <span className="text-muted-foreground">Executado por:</span>{" "}
-                  {detail.user_id ? data?.users.get(detail.user_id) ?? "—" : "—"}
+                  {detail.user_id ? (data?.users.get(detail.user_id) ?? "—") : "—"}
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Unidade:</span>{" "}
-                  {data?.units.get(detail.unit_id) ?? "—"}
+                  <span className="text-muted-foreground">Unidade:</span> {data?.units.get(detail.unit_id) ?? "—"}
                 </div>
               </div>
 
-              <HistoryDetailBody
-                detail={detail}
-                checklist={detailChecklist}
-                unit={unit}
-              />
+              <HistoryDetailBody detail={detail} checklist={detailChecklist} unit={unit} />
             </div>
           )}
           <DialogFooter>
@@ -1705,12 +1573,38 @@ function HistoryDetailBody({
   unit: UnitConfig | null;
 }) {
   if (!checklist) {
+    // Modo Inteligente: Procura por qualquer foto salva nos dados brutos do histórico
+    const savedPhotos = Object.values(detail.answers_data || {}).filter(
+      (v: any) => v && typeof v === "object" && typeof v.url === "string",
+    );
+
     return (
-      <div className="text-xs text-muted-foreground">
-        Modelo da rotina não encontrado. Dados brutos:
-        <pre className="mt-2 bg-slate-50 p-2 rounded overflow-x-auto text-[10px]">
-          {JSON.stringify(detail.answers_data, null, 2)}
-        </pre>
+      <div className="space-y-4">
+        <div className="text-xs text-amber-700 bg-amber-50 p-3 rounded-md border border-amber-200">
+          O modelo original desta rotina foi excluído ou recriado, mas o histórico foi preservado.
+        </div>
+
+        {savedPhotos.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Fotos salvas nesta execução:</div>
+            {savedPhotos.map((photo: any, idx) => (
+              <a key={idx} href={photo.url} target="_blank" rel="noreferrer" className="block">
+                <img
+                  src={photo.url}
+                  alt="Foto recuperada do histórico"
+                  className="w-full max-h-64 object-contain rounded border bg-slate-50"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground mt-4">
+          Dados técnicos:
+          <pre className="mt-2 bg-slate-50 p-2 rounded overflow-x-auto text-[10px]">
+            {JSON.stringify(detail.answers_data, null, 2)}
+          </pre>
+        </div>
       </div>
     );
   }
@@ -1722,9 +1616,7 @@ function HistoryDetailBody({
         return (
           <li key={item.id} className="border rounded-md p-3 space-y-1.5">
             <div className="text-xs font-medium">{item.question}</div>
-            <div className="text-sm">
-              {renderAnswer(item, v, detail, unit)}
-            </div>
+            <div className="text-sm">{renderAnswer(item, v, detail, unit)}</div>
           </li>
         );
       })}
@@ -1732,20 +1624,11 @@ function HistoryDetailBody({
   );
 }
 
-function renderAnswer(
-  item: ChecklistItem,
-  v: AnswerValue | undefined,
-  detail: HistoryRow,
-  unit: UnitConfig | null,
-) {
+function renderAnswer(item: ChecklistItem, v: AnswerValue | undefined, detail: HistoryRow, unit: UnitConfig | null) {
   switch (item.response_type) {
     case "boolean": {
       const b = typeof v === "boolean" ? v : !!detail.checked_items?.[item.id];
-      return (
-        <span className={b ? "text-green-700" : "text-muted-foreground"}>
-          {b ? "✓ Sim" : "— Não"}
-        </span>
-      );
+      return <span className={b ? "text-green-700" : "text-muted-foreground"}>{b ? "✓ Sim" : "— Não"}</span>;
     }
     case "text":
       return <span>{typeof v === "string" && v ? v : <span className="text-muted-foreground">—</span>}</span>;
@@ -1773,9 +1656,7 @@ function renderAnswer(
           {ans.confirmed.map((c, i) => (
             <li key={i} className="flex justify-between text-xs">
               <span className="text-muted-foreground">PDV {i + 1}</span>
-              <span className={c ? "text-green-700" : "text-amber-700"}>
-                {c ? "✓ Fechado" : "— Pendente"}
-              </span>
+              <span className={c ? "text-green-700" : "text-amber-700"}>{c ? "✓ Fechado" : "— Pendente"}</span>
             </li>
           ))}
         </ul>
@@ -1793,9 +1674,7 @@ function renderAnswer(
               <li key={i} className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Freezer {i + 1}</span>
                 <span className={unsafe ? "text-destructive font-medium" : ""}>
-                  {t === "" || t === null || t === undefined
-                    ? "—"
-                    : `${Number(t).toFixed(1)}°C`}
+                  {t === "" || t === null || t === undefined ? "—" : `${Number(t).toFixed(1)}°C`}
                   {unsafe && " ⚠"}
                 </span>
               </li>
