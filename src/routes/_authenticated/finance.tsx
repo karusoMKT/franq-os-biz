@@ -200,6 +200,21 @@ function FinancePage() {
     },
   });
 
+  const accountsPayableQuery = useQuery({
+    enabled: !!companyId && unitIds.length > 0,
+    queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("accounts_payable")
+        .select("*")
+        .eq("company_id", companyId)
+        .in("unit_id", unitIds)
+        .order("due_date", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as AccountPayable[];
+    },
+  });
+
   const totals = useMemo(() => {
     const list = txQuery.data ?? [];
     const revenue = list.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
