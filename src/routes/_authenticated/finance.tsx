@@ -84,6 +84,18 @@ type RecurringExpense = {
   created_at: string | null;
 };
 
+type AccountPayable = {
+  id: string;
+  company_id: string | null;
+  unit_id: string | null;
+  supplier_name: string | null;
+  amount: number;
+  due_date: string | null;
+  status: "pending" | "paid" | string;
+  created_at: string | null;
+  paid_at: string | null;
+};
+
 const INCOME_CATEGORIES = ["Vendas", "Faturamento", "Serviços", "Outros"];
 const EXPENSE_CATEGORIES = [
   "Mercadoria",
