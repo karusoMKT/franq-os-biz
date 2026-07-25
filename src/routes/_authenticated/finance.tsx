@@ -42,6 +42,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loading } from "@/components/loading";
+import { BillScannerButton } from "@/components/bill-scanner-dialog";
 
 export const Route = createFileRoute("/_authenticated/finance")({
   head: () => ({ meta: [{ title: "Financeiro - FranqOS" }] }),
@@ -239,6 +240,8 @@ function FinancePage() {
       title="Financeiro"
       subtitle={isOverview ? "Visão geral da rede" : selectedUnit?.name ?? "Unidade"}
     >
+      <BillScannerButton profile={profile} />
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           loading={txQuery.isLoading}
