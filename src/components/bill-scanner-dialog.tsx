@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Camera, Loader2, Save, Building2, Calendar, DollarSign, RefreshCcw } from "lucide-react";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ type OcrBillResult = {
   due_date: string | null;
 };
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=AQ.Ab8RN6L1a2WrmN1djzPB97HtDLrkWStLoFsh7XRi6V7UTNAHTg";
+const GEMINI_API_KEY = "AQ.Ab8RN6L1a2WrmN1djzPB97HtDLrkWStLoFsh7XRi6V7UTNAHTg";
 
 async function ocrBillClient(
   base64Data: string,
@@ -29,69 +30,52 @@ async function ocrBillClient(
 ): Promise<OcrBillResult> {
   const cleanBase64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
 
-  let response: Response;
   try {
-    response = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (string no formato YYYY-MM-DD). Se algum dado for ilegível, retorne null no campo.",
-              },
-              { inline_data: { mime_type: mimeType, data: cleanBase64 } },
-            ],
-          },
-        ],
-        generationConfig: { response_mime_type: "application/json" },
-      }),
-    });
-  } catch (err) {
-    console.error("Erro na API (network):", err);
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt =
+      "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (YYYY-MM-DD). Se não achar algo, retorne null. Retorne APENAS o JSON, sem formatação markdown.";
+
+    const imagePart = {
+      inlineData: {
+        data: cleanBase64,
+        mimeType: mimeType || "image/jpeg",
+      },
+    };
+
+    const result = await model.generateContent([prompt, imagePart]);
+    const text = result.response.text();
+    const cleanJsonText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    let parsed: Partial<OcrBillResult> = {};
+    try {
+      parsed = JSON.parse(cleanJsonText);
+    } catch {
+      const match = cleanJsonText.match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+    }
+
+    return {
+      supplier_name:
+        typeof parsed.supplier_name === "string" ? parsed.supplier_name : null,
+      amount:
+        typeof parsed.amount === "number"
+          ? parsed.amount
+          : parsed.amount != null && !isNaN(Number(parsed.amount))
+            ? Number(parsed.amount)
+            : null,
+      due_date:
+        typeof parsed.due_date === "string" ? parsed.due_date : null,
+    };
+  } catch (error) {
+    console.error("Erro no SDK do Gemini:", error);
     throw new Error(
-      err instanceof Error ? `Network: ${err.message}` : "Erro de rede ao processar imagem",
+      error instanceof Error ? error.message : "Falha ao ler o boleto com o SDK.",
     );
   }
-
-  if (!response.ok) {
-    const errorData = await response.text().catch(() => "Não foi possível ler o corpo do erro");
-    console.error("Erro na API:", response.status, response.statusText, errorData);
-    throw new Error(`Google API ${response.status}: ${errorData}`);
-  }
-
-  const payload = await response.json();
-  const text: string =
-    payload?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-
-  let parsed: Partial<OcrBillResult> = {};
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
-        parsed = JSON.parse(match[0]);
-      } catch {
-        parsed = {};
-      }
-    }
-  }
-
-  return {
-    supplier_name:
-      typeof parsed.supplier_name === "string" ? parsed.supplier_name : null,
-    amount:
-      typeof parsed.amount === "number"
-        ? parsed.amount
-        : parsed.amount != null && !isNaN(Number(parsed.amount))
-          ? Number(parsed.amount)
-          : null,
-    due_date:
-      typeof parsed.due_date === "string" ? parsed.due_date : null,
-  };
 }
+
 
 type FormState = { supplier_name: string; amount: string; due_date: string };
 const EMPTY_FORM: FormState = { supplier_name: "", amount: "", due_date: "" };
