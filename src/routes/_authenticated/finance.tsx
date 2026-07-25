@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useUnitContext } from "@/hooks/use-unit-context";
@@ -544,14 +544,41 @@ function AccountsPayableSection({
   units: { id: string; name: string }[];
   isOverview: boolean;
 }) {
-  const list = query.data ?? [];
+  const queryClient = useQueryClient();
+  const rawList = query.data ?? [];
+
+  const list = useMemo(() => {
+    const arr = [...rawList];
+    arr.sort((a, b) => {
+      const aPaid = (a.status ?? "pending").toLowerCase() === "paid" ? 1 : 0;
+      const bPaid = (b.status ?? "pending").toLowerCase() === "paid" ? 1 : 0;
+      if (aPaid !== bPaid) return aPaid - bPaid;
+      return (a.due_date ?? "").localeCompare(b.due_date ?? "");
+    });
+    return arr;
+  }, [rawList]);
+
+  const markPaidMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("accounts_payable")
+        .update({ status: "paid" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Conta marcada como paga.");
+      queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erro ao dar baixa."),
+  });
 
   return (
     <Card className="overflow-hidden">
       <div className="p-3 border-b bg-muted/30">
         <h3 className="text-sm font-semibold">Contas a Pagar</h3>
         <p className="text-[11px] text-muted-foreground">
-          Vencimentos mais próximos primeiro
+          Pendentes no topo, ordenadas por vencimento
         </p>
       </div>
 
@@ -579,36 +606,39 @@ function AccountsPayableSection({
                 <TableHead className="text-right">Vencimento</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 {isOverview && <TableHead className="hidden sm:table-cell">Unidade</TableHead>}
+                <TableHead className="text-center w-[52px]">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {list.map((item) => {
                 const unitName = units.find((u) => u.id === item.unit_id)?.name ?? "—";
                 const status = (item.status ?? "pending").toLowerCase();
-                const isOverdue = status === "pending" && item.due_date && new Date(item.due_date + "T00:00:00") < new Date();
+                const isPaid = status === "paid";
+                const isOverdue = !isPaid && item.due_date && new Date(item.due_date + "T00:00:00") < new Date();
+                const isPending = markPaidMutation.isPending && markPaidMutation.variables === item.id;
                 return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium text-sm truncate max-w-[140px]">
+                  <TableRow key={item.id} className={cn(isPaid && "opacity-60")}>
+                    <TableCell className={cn("font-medium text-sm truncate max-w-[140px]", isPaid && "line-through")}>
                       {item.supplier_name}
                     </TableCell>
-                    <TableCell className="text-right text-sm font-semibold">
+                    <TableCell className={cn("text-right text-sm font-semibold", isPaid && "line-through")}>
                       {fmtBRL(Number(item.amount))}
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                      <span className={isOverdue ? "text-red-600 font-medium" : ""}>
+                      <span className={cn(isOverdue && "text-red-600 font-medium", isPaid && "line-through")}>
                         {new Date(item.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge
-                        variant={status === "paid" ? "default" : "secondary"}
+                        variant={isPaid ? "default" : "secondary"}
                         className={cn(
                           "text-[10px]",
-                          status === "paid" && "bg-emerald-600 hover:bg-emerald-600",
-                          status === "pending" && isOverdue && "bg-red-100 text-red-700 hover:bg-red-100"
+                          isPaid && "bg-emerald-600 hover:bg-emerald-600",
+                          !isPaid && isOverdue && "bg-red-100 text-red-700 hover:bg-red-100"
                         )}
                       >
-                        {status === "paid" ? "Pago" : status === "pending" ? "Pendente" : item.status}
+                        {isPaid ? "Pago" : status === "pending" ? "Pendente" : item.status}
                       </Badge>
                     </TableCell>
                     {isOverview && (
@@ -616,6 +646,20 @@ function AccountsPayableSection({
                         {unitName}
                       </TableCell>
                     )}
+                    <TableCell className="text-center">
+                      {!isPaid && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                          disabled={isPending}
+                          onClick={() => markPaidMutation.mutate(item.id)}
+                          title="Marcar como pago"
+                        >
+                          <Check size={16} />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -626,6 +670,7 @@ function AccountsPayableSection({
     </Card>
   );
 }
+
 
 function StatCard({
   icon,
