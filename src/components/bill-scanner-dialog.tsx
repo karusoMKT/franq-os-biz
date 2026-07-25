@@ -107,7 +107,6 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const ocr = useServerFn(ocrBill);
   const qc = useQueryClient();
 
   const reset = () => {
@@ -123,7 +122,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
     setScanning(true);
     try {
       const { base64, mimeType } = await fileToBase64(file);
-      const result: OcrBillResult = await ocr({ data: { imageBase64: base64, mimeType } });
+      const result = await ocrBillClient(base64, mimeType);
       setForm({
         supplier_name: result.supplier_name ?? "",
         amount: result.amount != null ? String(result.amount) : "",
