@@ -28,6 +28,8 @@ async function ocrBillClient(
   base64Data: string,
   mimeType: string,
 ): Promise<OcrBillResult> {
+  const cleanBase64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
+
   let response: Response;
   try {
     response = await fetch(GEMINI_URL, {
@@ -40,7 +42,7 @@ async function ocrBillClient(
               {
                 text: "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (string no formato YYYY-MM-DD). Se algum dado for ilegível, retorne null no campo.",
               },
-              { inline_data: { mime_type: mimeType, data: base64Data } },
+              { inline_data: { mime_type: mimeType, data: cleanBase64 } },
             ],
           },
         ],
@@ -49,13 +51,15 @@ async function ocrBillClient(
     });
   } catch (err) {
     console.error("Erro na API (network):", err);
-    throw new Error("Erro ao processar imagem");
+    throw new Error(
+      err instanceof Error ? `Network: ${err.message}` : "Erro de rede ao processar imagem",
+    );
   }
 
   if (!response.ok) {
-    const bodyText = await response.text().catch(() => "");
-    console.error("Erro na API:", response.status, response.statusText, bodyText);
-    throw new Error("Erro ao processar imagem");
+    const errorData = await response.text().catch(() => "Não foi possível ler o corpo do erro");
+    console.error("Erro na API:", response.status, response.statusText, errorData);
+    throw new Error(`Google API ${response.status}: ${errorData}`);
   }
 
   const payload = await response.json();
