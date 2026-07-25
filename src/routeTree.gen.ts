@@ -26,6 +26,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_authenticated/daily-checklists'
 import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
 import { Route as AuthenticatedAuditsRouteImport } from './routes/_authenticated/audits'
+import { Route as AuthenticatedAccountsPayableRouteImport } from './routes/_authenticated/accounts-payable'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard.manager'
@@ -118,6 +119,12 @@ const AuthenticatedAuditsRoute = AuthenticatedAuditsRouteImport.update({
   path: '/audits',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAccountsPayableRoute =
+  AuthenticatedAccountsPayableRouteImport.update({
+    id: '/accounts-payable',
+    path: '/accounts-payable',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/',
@@ -150,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/accounts-payable': typeof AuthenticatedAccountsPayableRoute
   '/audits': typeof AuthenticatedAuditsRoute
   '/checklists': typeof AuthenticatedChecklistsRoute
   '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/accounts-payable': typeof AuthenticatedAccountsPayableRoute
   '/audits': typeof AuthenticatedAuditsRoute
   '/checklists': typeof AuthenticatedChecklistsRoute
   '/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/accounts-payable': typeof AuthenticatedAccountsPayableRoute
   '/_authenticated/audits': typeof AuthenticatedAuditsRoute
   '/_authenticated/checklists': typeof AuthenticatedChecklistsRoute
   '/_authenticated/daily-checklists': typeof AuthenticatedDailyChecklistsRoute
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/accounts-payable'
     | '/audits'
     | '/checklists'
     | '/daily-checklists'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/accounts-payable'
     | '/audits'
     | '/checklists'
     | '/daily-checklists'
@@ -263,6 +275,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/accounts-payable'
     | '/_authenticated/audits'
     | '/_authenticated/checklists'
     | '/_authenticated/daily-checklists'
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/accounts-payable': {
+      id: '/_authenticated/accounts-payable'
+      path: '/accounts-payable'
+      fullPath: '/accounts-payable'
+      preLoaderRoute: typeof AuthenticatedAccountsPayableRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
       path: '/'
@@ -462,6 +482,7 @@ const AuthenticatedDashboardRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountsPayableRoute: typeof AuthenticatedAccountsPayableRoute
   AuthenticatedAuditsRoute: typeof AuthenticatedAuditsRoute
   AuthenticatedChecklistsRoute: typeof AuthenticatedChecklistsRoute
   AuthenticatedDailyChecklistsRoute: typeof AuthenticatedDailyChecklistsRoute
@@ -475,6 +496,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountsPayableRoute: AuthenticatedAccountsPayableRoute,
   AuthenticatedAuditsRoute: AuthenticatedAuditsRoute,
   AuthenticatedChecklistsRoute: AuthenticatedChecklistsRoute,
   AuthenticatedDailyChecklistsRoute: AuthenticatedDailyChecklistsRoute,
