@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Camera, Loader2, Save, Building2, Calendar, DollarSign, RefreshCcw } from "lucide-react";
@@ -15,7 +14,75 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Profile } from "@/hooks/use-profile";
-import { ocrBill, type OcrBillResult } from "@/lib/api/ocr-bill.functions";
+
+type OcrBillResult = {
+  supplier_name: string | null;
+  amount: number | null;
+  due_date: string | null;
+};
+
+const GEMINI_API_KEY = "AQ.Ab8RN6L1a2WrmN1djzPB97HtDLrkWStLoFsh7XRi6V7UTNAHTg";
+
+async function ocrBillClient(
+  base64Data: string,
+  mimeType: string,
+): Promise<OcrBillResult> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (string no formato YYYY-MM-DD). Se algum dado for ilegível, retorne null no campo.",
+              },
+              { inline_data: { mime_type: mimeType, data: base64Data } },
+            ],
+          },
+        ],
+        generationConfig: { response_mime_type: "application/json" },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Falha ao ler boleto (${response.status})`);
+  }
+
+  const payload = await response.json();
+  const text: string =
+    payload?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+
+  let parsed: Partial<OcrBillResult> = {};
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch {
+        parsed = {};
+      }
+    }
+  }
+
+  return {
+    supplier_name:
+      typeof parsed.supplier_name === "string" ? parsed.supplier_name : null,
+    amount:
+      typeof parsed.amount === "number"
+        ? parsed.amount
+        : parsed.amount != null && !isNaN(Number(parsed.amount))
+          ? Number(parsed.amount)
+          : null,
+    due_date:
+      typeof parsed.due_date === "string" ? parsed.due_date : null,
+  };
+}
 
 type FormState = { supplier_name: string; amount: string; due_date: string };
 const EMPTY_FORM: FormState = { supplier_name: "", amount: "", due_date: "" };
@@ -40,7 +107,6 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const ocr = useServerFn(ocrBill);
   const qc = useQueryClient();
 
   const reset = () => {
@@ -56,7 +122,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
     setScanning(true);
     try {
       const { base64, mimeType } = await fileToBase64(file);
-      const result: OcrBillResult = await ocr({ data: { imageBase64: base64, mimeType } });
+      const result = await ocrBillClient(base64, mimeType);
       setForm({
         supplier_name: result.supplier_name ?? "",
         amount: result.amount != null ? String(result.amount) : "",
