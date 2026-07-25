@@ -992,16 +992,28 @@ function AnswerRow({
               <div key={i} className="flex flex-col gap-1">
                 <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
                 <Input
-                  type="number"
-                  step="0.1"
-                  inputMode="decimal"
-                  placeholder="°C"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  placeholder="°C (ex: -20)"
                   disabled={locked}
                   defaultValue={raw ?? ""}
                   className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
+                  onChange={(e) => {
+                    // Permite dígitos, um sinal de menos no início e um separador decimal (. ou ,)
+                    const cleaned = e.target.value
+                      .replace(/[^0-9.,\-]/g, "")
+                      .replace(/(?!^)-/g, "")
+                      .replace(/(,.*),/g, "$1")
+                      .replace(/(\..*)\./g, "$1");
+                    if (e.target.value !== cleaned) e.target.value = cleaned;
+                  }}
                   onBlur={(e) => {
+                    const normalized = e.target.value.replace(",", ".").trim();
+                    const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
+                    const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
                     const temps = Array.from({ length: n }, (_, j) =>
-                      j === i ? e.target.value : (ans.temps[j] ?? ""),
+                      j === i ? value : (ans.temps[j] ?? ""),
                     );
                     onAnswer({ temps });
                   }}
