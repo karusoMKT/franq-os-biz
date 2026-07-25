@@ -535,6 +535,98 @@ function FinancePage() {
   );
 }
 
+function AccountsPayableSection({
+  query,
+  units,
+  isOverview,
+}: {
+  query: ReturnType<typeof useQuery<AccountPayable[]>>;
+  units: { id: string; name: string }[];
+  isOverview: boolean;
+}) {
+  const list = query.data ?? [];
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="p-3 border-b bg-muted/30">
+        <h3 className="text-sm font-semibold">Contas a Pagar</h3>
+        <p className="text-[11px] text-muted-foreground">
+          Vencimentos mais próximos primeiro
+        </p>
+      </div>
+
+      {query.isLoading ? (
+        <div className="p-4 space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : query.isError ? (
+        <div className="p-4 text-sm text-red-600">
+          {query.error instanceof Error ? query.error.message : "Erro ao carregar contas a pagar."}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="p-6 text-center text-sm text-muted-foreground">
+          Nenhuma conta a pagar encontrada.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fornecedor</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-right">Vencimento</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                {isOverview && <TableHead className="hidden sm:table-cell">Unidade</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.map((item) => {
+                const unitName = units.find((u) => u.id === item.unit_id)?.name ?? "—";
+                const status = (item.status ?? "pending").toLowerCase();
+                const isOverdue = status === "pending" && item.due_date && new Date(item.due_date + "T00:00:00") < new Date();
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium text-sm truncate max-w-[140px]">
+                      {item.supplier_name}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-semibold">
+                      {fmtBRL(Number(item.amount))}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      <span className={isOverdue ? "text-red-600 font-medium" : ""}>
+                        {new Date(item.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge
+                        variant={status === "paid" ? "default" : "secondary"}
+                        className={cn(
+                          "text-[10px]",
+                          status === "paid" && "bg-emerald-600 hover:bg-emerald-600",
+                          status === "pending" && isOverdue && "bg-red-100 text-red-700 hover:bg-red-100"
+                        )}
+                      >
+                        {status === "paid" ? "Pago" : status === "pending" ? "Pendente" : item.status}
+                      </Badge>
+                    </TableCell>
+                    {isOverview && (
+                      <TableCell className="hidden sm:table-cell text-[11px] text-muted-foreground">
+                        {unitName}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function StatCard({
   icon,
   label,
