@@ -207,7 +207,7 @@ function FinancePage() {
       const { data, error } = await supabase
         .from("accounts_payable")
         .select("*")
-        .eq("company_id", companyId)
+        .eq("company_id", companyId!)
         .in("unit_id", unitIds)
         .order("due_date", { ascending: true });
       if (error) throw error;
