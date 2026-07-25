@@ -133,8 +133,10 @@ function AccountsPayablePage() {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  if (!profile) return <Loading />;
+
   return (
-    <MobileShellWrap>
+    <MobileShell profile={profile} title="Contas a Pagar" subtitle="Escaneie boletos com IA">
       <div className="p-4 space-y-4 pb-24 max-w-md mx-auto">
         <header>
           <h1 className="text-xl font-bold">Contas a Pagar</h1>
