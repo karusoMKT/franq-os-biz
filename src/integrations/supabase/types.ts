@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_payable: {
+        Row: {
+          amount: number
+          company_id: string | null
+          created_at: string | null
+          created_by: string | null
+          due_date: string
+          id: string
+          receipt_url: string | null
+          status: string | null
+          supplier_name: string
+          unit_id: string | null
+        }
+        Insert: {
+          amount: number
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date: string
+          id?: string
+          receipt_url?: string | null
+          status?: string | null
+          supplier_name: string
+          unit_id?: string | null
+        }
+        Update: {
+          amount?: number
+          company_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          receipt_url?: string | null
+          status?: string | null
+          supplier_name?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "unit_financial_summary"
+            referencedColumns: ["unit_id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
