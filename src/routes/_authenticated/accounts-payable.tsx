@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loading } from "@/components/loading";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 import { ocrBill, type OcrBillResult } from "@/lib/api/ocr-bill.functions";
@@ -133,7 +134,7 @@ function AccountsPayablePage() {
   };
 
   return (
-    <MobileShell>
+    <MobileShellWrap>
       <div className="p-4 space-y-4 pb-24 max-w-md mx-auto">
         <header>
           <h1 className="text-xl font-bold">Contas a Pagar</h1>
