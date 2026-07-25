@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useUnitContext } from "@/hooks/use-unit-context";
