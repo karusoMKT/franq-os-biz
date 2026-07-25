@@ -32,7 +32,7 @@ async function ocrBillClient(
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
     const prompt =
       "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (YYYY-MM-DD). Se não achar algo, retorne null. Retorne APENAS o JSON, sem formatação markdown.";
