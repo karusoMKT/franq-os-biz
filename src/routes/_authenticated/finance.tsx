@@ -277,6 +277,12 @@ function FinancePage() {
     >
       <BillScannerButton profile={profile} />
 
+      <AccountsPayableSection
+        query={accountsPayableQuery}
+        units={units}
+        isOverview={isOverview}
+      />
+
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           loading={txQuery.isLoading}
