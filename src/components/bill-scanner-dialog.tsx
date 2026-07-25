@@ -22,14 +22,15 @@ type OcrBillResult = {
 };
 
 const GEMINI_API_KEY = "AQ.Ab8RN6L1a2WrmN1djzPB97HtDLrkWStLoFsh7XRi6V7UTNAHTg";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 async function ocrBillClient(
   base64Data: string,
   mimeType: string,
 ): Promise<OcrBillResult> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
+  let response: Response;
+  try {
+    response = await fetch(GEMINI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,11 +46,16 @@ async function ocrBillClient(
         ],
         generationConfig: { response_mime_type: "application/json" },
       }),
-    },
-  );
+    });
+  } catch (err) {
+    console.error("Erro na API (network):", err);
+    throw new Error("Erro ao processar imagem");
+  }
 
   if (!response.ok) {
-    throw new Error(`Falha ao ler boleto (${response.status})`);
+    const bodyText = await response.text().catch(() => "");
+    console.error("Erro na API:", response.status, response.statusText, bodyText);
+    throw new Error("Erro ao processar imagem");
   }
 
   const payload = await response.json();
