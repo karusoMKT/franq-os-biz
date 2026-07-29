@@ -24,57 +24,80 @@ type OcrBillResult = {
 
 const GEMINI_API_KEY = "AQ.Ab8RN6L1a2WrmN1djzPB97HtDLrkWStLoFsh7XRi6V7UTNAHTg";
 
+const MODELS = ["gemini-3.5-flash", "gemini-1.5-flash"];
+const BUSY_MESSAGE =
+  "Os servidores da IA estão temporariamente ocupados. Tente ler o boleto novamente em instantes.";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function isBusyError(error: unknown) {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /\[?(503|500|429)\]?|overload|high demand|unavailable|internal/i.test(msg);
+}
+
+function parseOcrText(text: string): OcrBillResult {
+  const cleanJsonText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  let parsed: Partial<OcrBillResult> = {};
+  try {
+    parsed = JSON.parse(cleanJsonText);
+  } catch {
+    const match = cleanJsonText.match(/\{[\s\S]*\}/);
+    if (match) parsed = JSON.parse(match[0]);
+  }
+
+  return {
+    supplier_name:
+      typeof parsed.supplier_name === "string" ? parsed.supplier_name : null,
+    amount:
+      typeof parsed.amount === "number"
+        ? parsed.amount
+        : parsed.amount != null && !isNaN(Number(parsed.amount))
+          ? Number(parsed.amount)
+          : null,
+    due_date: typeof parsed.due_date === "string" ? parsed.due_date : null,
+  };
+}
+
 async function ocrBillClient(
   base64Data: string,
   mimeType: string,
 ): Promise<OcrBillResult> {
   const cleanBase64 = base64Data.replace(/^data:image\/[a-z]+;base64,/, "");
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-  try {
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+  const prompt =
+    "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (YYYY-MM-DD). Se não achar algo, retorne null. Retorne APENAS o JSON, sem formatação markdown.";
 
-    const prompt =
-      "Você é um assistente financeiro. Leia este boleto ou conta de consumo e retorne estritamente um JSON válido com as chaves: 'supplier_name' (string), 'amount' (number, use ponto decimal, sem R$) e 'due_date' (YYYY-MM-DD). Se não achar algo, retorne null. Retorne APENAS o JSON, sem formatação markdown.";
+  const imagePart = {
+    inlineData: { data: cleanBase64, mimeType: mimeType || "image/jpeg" },
+  };
 
-    const imagePart = {
-      inlineData: {
-        data: cleanBase64,
-        mimeType: mimeType || "image/jpeg",
-      },
-    };
+  let lastError: unknown = null;
 
-    const result = await model.generateContent([prompt, imagePart]);
-    const text = result.response.text();
-    const cleanJsonText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    let parsed: Partial<OcrBillResult> = {};
-    try {
-      parsed = JSON.parse(cleanJsonText);
-    } catch {
-      const match = cleanJsonText.match(/\{[\s\S]*\}/);
-      if (match) parsed = JSON.parse(match[0]);
+  for (const modelName of MODELS) {
+    // 2 tentativas por modelo (retry automático em caso de sobrecarga)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent([prompt, imagePart]);
+        return parseOcrText(result.response.text());
+      } catch (error) {
+        lastError = error;
+        console.error(`Erro no Gemini (${modelName}, tentativa ${attempt + 1}):`, error);
+        if (!isBusyError(error)) break; // erro definitivo: tenta próximo modelo/fallback
+        if (attempt === 0) await sleep(2500);
+      }
     }
-
-    return {
-      supplier_name:
-        typeof parsed.supplier_name === "string" ? parsed.supplier_name : null,
-      amount:
-        typeof parsed.amount === "number"
-          ? parsed.amount
-          : parsed.amount != null && !isNaN(Number(parsed.amount))
-            ? Number(parsed.amount)
-            : null,
-      due_date:
-        typeof parsed.due_date === "string" ? parsed.due_date : null,
-    };
-  } catch (error) {
-    console.error("Erro no SDK do Gemini:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Falha ao ler o boleto com o SDK.",
-    );
   }
+
+  throw new Error(
+    isBusyError(lastError)
+      ? BUSY_MESSAGE
+      : "Não foi possível ler o boleto. Tente novamente ou preencha os dados manualmente.",
+  );
 }
+
 
 
 type FormState = { supplier_name: string; amount: string; due_date: string };
