@@ -201,19 +201,23 @@ function FinancePage() {
   });
 
   const accountsPayableQuery = useQuery({
-    enabled: !!companyId && unitIds.length > 0,
+    enabled: !!companyId,
     queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("accounts_payable")
         .select("*")
-        .eq("company_id", companyId!)
-        .in("unit_id", unitIds)
-        .order("due_date", { ascending: true });
+        .eq("company_id", companyId!);
+      // Inclui contas sem unidade vinculada (ex.: escaneadas por owner sem unidade)
+      if (selectedUnitId) {
+        q = q.or(`unit_id.eq.${selectedUnitId},unit_id.is.null`);
+      }
+      const { data, error } = await q.order("due_date", { ascending: true });
       if (error) throw error;
       return (data ?? []) as AccountPayable[];
     },
   });
+
 
   const totals = useMemo(() => {
     const list = txQuery.data ?? [];
@@ -559,19 +563,37 @@ function AccountsPayableSection({
   }, [rawList]);
 
   const markPaidMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (item: AccountPayable) => {
       const { error } = await supabase
         .from("accounts_payable")
         .update({ status: "paid" })
-        .eq("id", id);
+        .eq("id", item.id);
       if (error) throw error;
+
+      // Registra a baixa como despesa no fluxo de caixa
+      const unitId = item.unit_id ?? units[0]?.id ?? null;
+      if (unitId) {
+        const { error: txError } = await supabase.from("transactions").insert({
+          unit_id: unitId,
+          type: "expense",
+          category: "Contas a Pagar",
+          amount: Number(item.amount),
+          date: new Date().toISOString().slice(0, 10),
+          description: `Baixa boleto: ${item.supplier_name}`,
+        });
+        if (txError) throw txError;
+      }
     },
     onSuccess: () => {
-      toast.success("Conta marcada como paga.");
+      toast.success("Conta paga e lançada nas despesas.");
       queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao dar baixa."),
   });
+
 
   return (
     <Card className="overflow-hidden">
@@ -615,7 +637,7 @@ function AccountsPayableSection({
                 const status = (item.status ?? "pending").toLowerCase();
                 const isPaid = status === "paid";
                 const isOverdue = !isPaid && item.due_date && new Date(item.due_date + "T00:00:00") < new Date();
-                const isPending = markPaidMutation.isPending && markPaidMutation.variables === item.id;
+                const isPending = markPaidMutation.isPending && markPaidMutation.variables?.id === item.id;
                 return (
                   <TableRow key={item.id} className={cn(isPaid && "opacity-60")}>
                     <TableCell className={cn("font-medium text-sm truncate max-w-[140px]", isPaid && "line-through")}>
@@ -653,7 +675,7 @@ function AccountsPayableSection({
                           variant="ghost"
                           className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                           disabled={isPending}
-                          onClick={() => markPaidMutation.mutate(item.id)}
+                          onClick={() => markPaidMutation.mutate(item)}
                           title="Marcar como pago"
                         >
                           <Check size={16} />
