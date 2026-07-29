@@ -563,19 +563,37 @@ function AccountsPayableSection({
   }, [rawList]);
 
   const markPaidMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (item: AccountPayable) => {
       const { error } = await supabase
         .from("accounts_payable")
         .update({ status: "paid" })
-        .eq("id", id);
+        .eq("id", item.id);
       if (error) throw error;
+
+      // Registra a baixa como despesa no fluxo de caixa
+      const unitId = item.unit_id ?? units[0]?.id ?? null;
+      if (unitId) {
+        const { error: txError } = await supabase.from("transactions").insert({
+          unit_id: unitId,
+          type: "expense",
+          category: "Contas a Pagar",
+          amount: Number(item.amount),
+          date: new Date().toISOString().slice(0, 10),
+          description: `Baixa boleto: ${item.supplier_name}`,
+        });
+        if (txError) throw txError;
+      }
     },
     onSuccess: () => {
-      toast.success("Conta marcada como paga.");
+      toast.success("Conta paga e lançada nas despesas.");
       queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao dar baixa."),
   });
+
 
   return (
     <Card className="overflow-hidden">
