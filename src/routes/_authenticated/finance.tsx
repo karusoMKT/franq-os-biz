@@ -637,7 +637,7 @@ function AccountsPayableSection({
                 const status = (item.status ?? "pending").toLowerCase();
                 const isPaid = status === "paid";
                 const isOverdue = !isPaid && item.due_date && new Date(item.due_date + "T00:00:00") < new Date();
-                const isPending = markPaidMutation.isPending && markPaidMutation.variables === item.id;
+                const isPending = markPaidMutation.isPending && markPaidMutation.variables?.id === item.id;
                 return (
                   <TableRow key={item.id} className={cn(isPaid && "opacity-60")}>
                     <TableCell className={cn("font-medium text-sm truncate max-w-[140px]", isPaid && "line-through")}>
@@ -675,7 +675,7 @@ function AccountsPayableSection({
                           variant="ghost"
                           className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                           disabled={isPending}
-                          onClick={() => markPaidMutation.mutate(item.id)}
+                          onClick={() => markPaidMutation.mutate(item)}
                           title="Marcar como pago"
                         >
                           <Check size={16} />
