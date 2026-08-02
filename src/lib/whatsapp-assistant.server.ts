@@ -54,38 +54,49 @@ function parseJson(text: string): IntentResult {
   }
 }
 
+const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
+
 export async function classifyMessage(message: string): Promise<IntentResult> {
   const today = new Date().toISOString().slice(0, 10);
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey()}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: `${SYSTEM_PROMPT}\n\nDATA DE HOJE: ${today}` }],
-        },
-        contents: [{ role: "user", parts: [{ text: message }] }],
-        generationConfig: { temperature: 0, responseMimeType: "application/json" },
-      }),
-    },
-  );
+  const key = geminiKey();
+  let lastError: unknown = null;
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 300)}`);
+  for (const model of MODELS) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: `${SYSTEM_PROMPT}\n\nDATA DE HOJE: ${today}` }],
+          },
+          contents: [{ role: "user", parts: [{ text: message }] }],
+          generationConfig: { temperature: 0, responseMimeType: "application/json" },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.text();
+      lastError = new Error(`Gemini ${model} ${res.status}: ${body.slice(0, 300)}`);
+      continue;
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const parsed = parseJson(text);
+    if (!["ADD_PAYABLE", "QUERY_DATA", "GENERAL_CHAT"].includes(parsed.intent)) {
+      return { intent: "GENERAL_CHAT", reply: "Não entendi, pode repetir?" };
+    }
+    return parsed;
   }
 
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  const parsed = parseJson(text);
-  if (!["ADD_PAYABLE", "QUERY_DATA", "GENERAL_CHAT"].includes(parsed.intent)) {
-    return { intent: "GENERAL_CHAT", reply: "Não entendi, pode repetir?" };
-  }
-  return parsed;
+  throw lastError ?? new Error("Falha ao consultar a IA");
 }
+
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
