@@ -27,6 +27,7 @@ import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_auth
 import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
 import { Route as AuthenticatedAuditsRouteImport } from './routes/_authenticated/audits'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
+import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
 import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard.manager'
 import { Route as AuthenticatedDashboardEmployeeRouteImport } from './routes/_authenticated/dashboard.employee'
@@ -124,6 +125,12 @@ const AuthenticatedDashboardIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const ApiPublicWhatsappWebhookRoute =
+  ApiPublicWhatsappWebhookRouteImport.update({
+    id: '/api/public/whatsapp-webhook',
+    path: '/api/public/whatsapp-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedDashboardOwnerRoute =
   AuthenticatedDashboardOwnerRouteImport.update({
     id: '/owner',
@@ -163,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRoutesByTo {
@@ -184,6 +192,7 @@ export interface FileRoutesByTo {
   '/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -208,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/employee': typeof AuthenticatedDashboardEmployeeRoute
   '/_authenticated/dashboard/manager': typeof AuthenticatedDashboardManagerRoute
   '/_authenticated/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
+  '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
+    | '/api/public/whatsapp-webhook'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/dashboard/employee'
     | '/dashboard/manager'
     | '/dashboard/owner'
+    | '/api/public/whatsapp-webhook'
     | '/dashboard'
   id:
     | '__root__'
@@ -276,6 +288,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/employee'
     | '/_authenticated/dashboard/manager'
     | '/_authenticated/dashboard/owner'
+    | '/api/public/whatsapp-webhook'
     | '/_authenticated/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -287,6 +300,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -417,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/api/public/whatsapp-webhook': {
+      id: '/api/public/whatsapp-webhook'
+      path: '/api/public/whatsapp-webhook'
+      fullPath: '/api/public/whatsapp-webhook'
+      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/dashboard/owner': {
       id: '/_authenticated/dashboard/owner'
       path: '/owner'
@@ -498,6 +519,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
