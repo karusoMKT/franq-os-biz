@@ -85,7 +85,6 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
           });
         } catch (error) {
           console.error("[whatsapp-webhook]", error);
-          return Response.json({ debug: String(error) }, { status: 500 });
           return Response.json(
             {
               intent: "GENERAL_CHAT",
