@@ -54,7 +54,7 @@ function parseJson(text: string): IntentResult {
   }
 }
 
-const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 
 export async function classifyMessage(message: string): Promise<IntentResult> {
   const today = new Date().toISOString().slice(0, 10);
