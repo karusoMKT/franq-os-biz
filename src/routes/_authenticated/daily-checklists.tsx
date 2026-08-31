@@ -569,7 +569,8 @@ function DailyChecklistsPage() {
   }
 
   if (activeExec && activeChecklist) {
-    const locked = activeExec.status === "completed";
+    const isCompleted = activeExec.status === "completed";
+    const locked = false;
     const total = activeChecklist.items.length;
     const done = activeChecklist.items.filter((i) =>
       isAnswered(i, activeExec.answers_data, activeExec.checked_items, unit ?? null),
