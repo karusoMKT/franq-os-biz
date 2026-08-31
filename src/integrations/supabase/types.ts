@@ -766,6 +766,8 @@ export type Database = {
           id: string
           name: string | null
           role: Database["public"]["Enums"]["app_role"]
+          subscription_status: string
+          trial_ends_at: string
           unit_id: string | null
           user_id: string
         }
@@ -776,6 +778,8 @@ export type Database = {
           id?: string
           name?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          subscription_status?: string
+          trial_ends_at?: string
           unit_id?: string | null
           user_id: string
         }
@@ -786,6 +790,8 @@ export type Database = {
           id?: string
           name?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          subscription_status?: string
+          trial_ends_at?: string
           unit_id?: string | null
           user_id?: string
         }
