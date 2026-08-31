@@ -86,7 +86,13 @@ function CheckoutPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...form, billingType }),
+        body: JSON.stringify({
+          name: form.name.trim(),
+          cpfCnpj: form.cpfCnpj.replace(/\D/g, ""),
+          email: form.email.trim(),
+          phone: form.phone ? form.phone.replace(/\D/g, "") : null,
+          billingType,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Falha ao gerar assinatura");
@@ -162,7 +168,11 @@ function CheckoutPage() {
                   <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
                   {result.pix.encodedImage && (
                     <img
-                      src={`data:image/png;base64,${result.pix.encodedImage}`}
+                      src={
+                        result.pix.encodedImage.startsWith("data:image/png;base64,")
+                          ? result.pix.encodedImage
+                          : `data:image/png;base64,${result.pix.encodedImage}`
+                      }
                       alt="QR Code Pix da assinatura FranqOS"
                       className="mx-auto h-48 w-48 rounded-lg border bg-white p-2"
                     />
