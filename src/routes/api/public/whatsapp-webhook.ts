@@ -48,14 +48,16 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
       // Verificação do webhook (Meta Cloud API)
       GET: async ({ request }) => {
         const url = new URL(request.url);
-        const token =
-          process.env["WEBHOOK_VERIFY_TOKEN"] ?? process.env["WHATSAPP_VERIFY_TOKEN"];
-        if (
-          url.searchParams.get("hub.mode") === "subscribe" &&
-          token &&
-          url.searchParams.get("hub.verify_token") === token
-        ) {
-          return new Response(url.searchParams.get("hub.challenge") ?? "", { status: 200 });
+        const token = (process.env["WEBHOOK_VERIFY_TOKEN"] ?? process.env["WHATSAPP_VERIFY_TOKEN"] ?? "").trim();
+        const mode = url.searchParams.get("hub.mode")?.trim();
+        const verifyToken = url.searchParams.get("hub.verify_token")?.trim();
+        const challenge = url.searchParams.get("hub.challenge") ?? "";
+
+        if (mode === "subscribe" && token && verifyToken === token) {
+          return new Response(challenge, {
+            status: 200,
+            headers: { "Content-Type": "text/plain" },
+          });
         }
         return new Response("Forbidden", { status: 403 });
       },
