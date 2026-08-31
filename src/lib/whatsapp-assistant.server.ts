@@ -32,12 +32,18 @@ Classifique a mensagem do usuário em EXATAMENTE uma das quatro intenções e re
    - amount: número com ponto decimal, sem "R$" e sem separador de milhar.
    - Se algum campo não for identificável, use null.
 
-2) QUERY_DATA — o usuário pergunta algo sobre o negócio (faturamento, despesas, boletos, metas).
+2) ADD_TRANSACTION — o usuário informa uma receita/faturamento já realizado ou uma despesa já paga (sem vencimento futuro).
+   Formato:
+   {"intent":"ADD_TRANSACTION","transaction_type":"income|expense","amount":123.45,"category":"categoria curta","description":"texto curto","date":"YYYY-MM-DD"}
+   - date: use a DATA DE HOJE quando não for informada.
+   - amount: número com ponto decimal, sem "R$" e sem separador de milhar.
+
+3) QUERY_DATA — o usuário pergunta algo sobre o negócio (faturamento, despesas, boletos, metas).
    Formato:
    {"intent":"QUERY_DATA","query_type":"revenue|expenses|payables|balance|other","date_range":{"start":"YYYY-MM-DD","end":"YYYY-MM-DD"}}
    - Interprete períodos ("hoje", "essa semana", "esse mês") em datas absolutas a partir da DATA DE HOJE.
 
-3) GENERAL_CHAT — saudações, agradecimentos ou qualquer outra coisa.
+4) GENERAL_CHAT — saudações, agradecimentos ou qualquer outra coisa.
    Formato:
    {"intent":"GENERAL_CHAT","reply":"resposta curta e cordial em português"}`;
 
@@ -92,7 +98,7 @@ export async function classifyMessage(message: string): Promise<IntentResult> {
     };
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const parsed = parseJson(text);
-    if (!["ADD_PAYABLE", "QUERY_DATA", "GENERAL_CHAT"].includes(parsed.intent)) {
+    if (!["ADD_PAYABLE", "ADD_TRANSACTION", "QUERY_DATA", "GENERAL_CHAT"].includes(parsed.intent)) {
       return { intent: "GENERAL_CHAT", reply: "Não entendi, pode repetir?" };
     }
     return parsed;
@@ -172,6 +178,36 @@ export async function handleWhatsappMessage(input: {
       intent: result.intent,
       data: result,
       reply: `Conta "${supplier}" de ${brl(result.amount)} adicionada com sucesso para o dia ${ptDate(result.due_date)}!`,
+    };
+  }
+
+  if (result.intent === "ADD_TRANSACTION") {
+    if (!result.amount || !result.transaction_type) {
+      return {
+        intent: result.intent,
+        data: result,
+        reply:
+          "Entendi que é um lançamento financeiro, mas faltou o valor ou o tipo (receita/despesa).",
+      };
+    }
+    const scope = await resolveScope(input);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const date = result.date ?? new Date().toISOString().slice(0, 10);
+    const { error } = await supabaseAdmin.from("transactions").insert({
+      unit_id: scope.unit_id,
+      type: result.transaction_type,
+      category:
+        result.category?.trim() ||
+        (result.transaction_type === "income" ? "Faturamento" : "Outros"),
+      amount: result.amount,
+      date,
+      description: result.description?.trim() || null,
+    });
+    if (error) throw new Error(error.message);
+    return {
+      intent: result.intent,
+      data: result,
+      reply: `${result.transaction_type === "income" ? "Receita" : "Despesa"} de ${brl(result.amount)} lançada em ${ptDate(date)}.`,
     };
   }
 
