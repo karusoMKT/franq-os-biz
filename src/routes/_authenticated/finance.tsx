@@ -336,6 +336,23 @@ function FinancePage() {
       title="Financeiro"
       subtitle={isOverview ? "Visão geral da rede" : selectedUnit?.name ?? "Unidade"}
     >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">Período</span>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {monthOptions.map((m) => (
+              <SelectItem key={m} value={m}>
+                {monthLabel(m)}
+                {m === currentMonth() ? " (atual)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <BillScannerButton profile={profile} />
 
       <AccountsPayableSection
@@ -343,6 +360,7 @@ function FinancePage() {
         units={units}
         isOverview={isOverview}
       />
+
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
