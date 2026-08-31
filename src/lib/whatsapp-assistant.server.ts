@@ -23,7 +23,7 @@ export type IntentResult = {
 
 const SYSTEM_PROMPT = `Você é o roteador de intenções de um assistente financeiro de franquias (FranqOS), que conversa em português do Brasil pelo WhatsApp.
 
-Classifique a mensagem do usuário em EXATAMENTE uma das três intenções e responda APENAS com um JSON válido, sem markdown, sem comentários.
+Classifique a mensagem do usuário em EXATAMENTE uma das quatro intenções e responda APENAS com um JSON válido, sem markdown, sem comentários.
 
 1) ADD_PAYABLE — o usuário quer registrar/adicionar uma conta, boleto ou despesa a pagar.
    Formato:
