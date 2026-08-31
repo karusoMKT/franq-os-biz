@@ -1022,97 +1022,17 @@ function AnswerRow({
   }
 
   if (item.response_type === "freezer_temperatures") {
-    const n = unit?.freezer_count ?? 0;
-    const ans = (current as FreezerTempsAns) ?? { temps: [] };
-
-    if (n <= 0) {
-      return (
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">{item.question}</Label>
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-            Configure a "Quantidade de Freezers" da unidade para preencher este item.
-          </div>
-        </div>
-      );
-    }
-
-    const offList = ans.off ?? [];
-    const schedules = unit?.measurement_schedules ?? [];
-
-    const emit = (temps: (string | number)[], off: boolean[]) => onAnswer({ temps, off });
-
     return (
-      <div className="flex flex-col gap-2">
-        <Label className="text-sm">{item.question}</Label>
-        {schedules.length > 0 && (
-          <div className="text-[10px] text-muted-foreground">
-            Conferências do dia: {schedules.join(" · ")}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: n }).map((_, i) => {
-            const isOff = offList[i] === true;
-            const raw = ans.temps[i];
-            const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
-            const unsafe = !isOff && Number.isFinite(num) && num > -18;
-            return (
-              <div key={i} className="flex flex-col gap-1 rounded border p-2">
-                <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
-                <Input
-                  key={`${i}-${isOff ? "off" : "on"}`}
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
-                  disabled={locked || isOff}
-                  defaultValue={isOff ? "" : (raw ?? "")}
-                  className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
-                  onChange={(e) => {
-                    // Permite dígitos, um sinal de menos no início e um separador decimal (. ou ,)
-                    const cleaned = e.target.value
-                      .replace(/[^0-9.,\-]/g, "")
-                      .replace(/(?!^)-/g, "")
-                      .replace(/(,.*),/g, "$1")
-                      .replace(/(\..*)\./g, "$1");
-                    if (e.target.value !== cleaned) e.target.value = cleaned;
-                  }}
-                  onBlur={(e) => {
-                    const normalized = e.target.value.replace(",", ".").trim();
-                    const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
-                    const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
-                    const temps = Array.from({ length: n }, (_, j) =>
-                      j === i ? value : (ans.temps[j] ?? ""),
-                    );
-                    emit(temps, Array.from({ length: n }, (_, j) => offList[j] === true));
-                  }}
-                />
-                <label className="flex items-center gap-1.5 text-[11px]">
-                  <Checkbox
-                    checked={isOff}
-                    disabled={locked}
-                    onCheckedChange={(v) => {
-                      const nextOff = Array.from({ length: n }, (_, j) =>
-                        j === i ? !!v : offList[j] === true,
-                      );
-                      const temps = Array.from({ length: n }, (_, j) =>
-                        j === i && !!v ? null : (ans.temps[j] ?? ""),
-                      ) as (string | number)[];
-                      emit(temps, nextOff);
-                    }}
-                  />
-                  <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
-                </label>
-                {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
-              </div>
-            );
-          })}
-        </div>
-        <span className="text-[10px] text-muted-foreground">
-          Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
-        </span>
-      </div>
+      <FreezerTemperaturesRow
+        item={item}
+        unit={unit}
+        locked={locked}
+        current={(current as FreezerTempsAns | null) ?? null}
+        onAnswer={onAnswer}
+      />
     );
   }
+
 
   if (item.response_type === "text") {
     const val = typeof current === "string" ? current : "";
