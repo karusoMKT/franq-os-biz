@@ -5,6 +5,7 @@ import { FranqosLogo } from "./franqos-logo";
 import { BottomNav } from "./bottom-nav";
 import { UnitSwitcher } from "./unit-switcher";
 import { NotificationsBell } from "./notifications-bell";
+import { TrialBanner } from "./trial-banner";
 import type { Profile } from "@/hooks/use-profile";
 
 export function MobileShell({

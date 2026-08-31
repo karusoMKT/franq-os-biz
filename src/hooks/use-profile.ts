@@ -11,6 +11,8 @@ export interface Profile {
   name: string | null;
   email: string | null;
   role: AppRole;
+  trial_ends_at?: string | null;
+  subscription_status?: string | null;
 }
 
 export const PROFILE_QUERY_KEY = ["profile"] as const;
