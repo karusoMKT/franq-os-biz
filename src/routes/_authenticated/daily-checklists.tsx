@@ -624,21 +624,21 @@ function DailyChecklistsPage() {
           )}
         </Card>
 
-        {locked ? (
-          <Card className="p-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border-green-200">
-            <Lock size={16} /> Checklist finalizado. Não é mais editável.
+        {isCompleted && (
+          <Card className="p-3 flex items-center gap-2 text-xs text-green-700 bg-green-50 border-green-200">
+            <CheckCircle2 size={16} /> Checklist finalizado — você ainda pode alterar as respostas.
           </Card>
-        ) : (
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={finishMutation.isPending || total === 0}
-            onClick={() => finishMutation.mutate(activeExec)}
-          >
-            <CheckCircle2 size={18} className="mr-2" />
-            Finalizar Checklist
-          </Button>
         )}
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={finishMutation.isPending || total === 0}
+          onClick={() => finishMutation.mutate(activeExec)}
+        >
+          <CheckCircle2 size={18} className="mr-2" />
+          {isCompleted ? "Atualizar Checklist" : "Finalizar Checklist"}
+        </Button>
+
       </MobileShell>
     );
   }
