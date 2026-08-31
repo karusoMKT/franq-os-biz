@@ -580,7 +580,7 @@ function DailyChecklistsPage() {
       <MobileShell
         profile={profile}
         title={activeChecklist.title}
-        subtitle={locked ? "Finalizado" : `${done}/${total} itens`}
+        subtitle={isCompleted ? `Finalizado · editável · ${done}/${total}` : `${done}/${total} itens`}
       >
         <Button variant="ghost" size="sm" onClick={() => setActiveId(null)} className="gap-1 -ml-2">
           <ArrowLeft size={16} /> Voltar
