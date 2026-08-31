@@ -196,7 +196,37 @@ function FinancePage() {
   const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
   const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<RecurringExpense | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
-  const monthOptions = useMemo(() => buildMonthOptions(), []);
+  // Meses disponíveis: apenas os que possuem registros (transactions / accounts_payable) + mês atual
+  const availableMonthsQuery = useQuery({
+    enabled: !!companyId,
+    queryKey: ["available-months", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryFn: async () => {
+      const [tx, ap] = await Promise.all([
+        unitIds.length > 0
+          ? supabase.from("transactions").select("date").in("unit_id", unitIds).limit(5000)
+          : Promise.resolve({ data: [], error: null } as any),
+        (() => {
+          let q = supabase.from("accounts_payable").select("due_date").eq("company_id", companyId!).limit(5000);
+          if (selectedUnitId) q = q.or(`unit_id.eq.${selectedUnitId},unit_id.is.null`);
+          return q;
+        })(),
+      ]);
+      if (tx.error) throw tx.error;
+      if (ap.error) throw ap.error;
+      const set = new Set<string>();
+      for (const r of (tx.data ?? []) as { date: string | null }[]) if (r.date) set.add(r.date.slice(0, 7));
+      for (const r of (ap.data ?? []) as { due_date: string | null }[]) if (r.due_date) set.add(r.due_date.slice(0, 7));
+      return Array.from(set);
+    },
+  });
+
+  const monthOptions = useMemo(() => {
+    const set = new Set<string>(availableMonthsQuery.data ?? []);
+    set.add(currentMonth());
+    set.add(selectedMonth);
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [availableMonthsQuery.data, selectedMonth]);
+
   const range = useMemo(() => monthRange(selectedMonth), [selectedMonth]);
 
   const txQuery = useQuery({
