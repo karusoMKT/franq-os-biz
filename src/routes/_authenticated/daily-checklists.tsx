@@ -47,9 +47,7 @@ type ResponseType =
   | "pdv_closing"
   | "freezer_temperatures"
   | "photo_upload"
-  // legacy
-  | "money"
-  | "freezer_grid";
+  | "money";
 
 type ChecklistItem = {
   id: string;
@@ -81,7 +79,6 @@ type AnswerValue =
   | PdvClosingAns
   | FreezerTempsAns
   | PhotoAns
-  | { count: number; temps: (string | number)[] } // legacy freezer_grid
   | null;
 type AnswersData = Record<string, AnswerValue>;
 
@@ -212,15 +209,6 @@ function isAnswered(
     case "photo_upload": {
       const ans = v as PhotoAns | null;
       return !!ans && typeof ans.url === "string" && ans.url.length > 0;
-    }
-    case "freezer_grid": {
-      if (!v || typeof v !== "object") return false;
-      const grid = v as { count: number; temps: (string | number)[] };
-      return (
-        grid.count > 0 &&
-        grid.temps.length === grid.count &&
-        grid.temps.every((t) => t !== "" && t !== null && t !== undefined)
-      );
     }
   }
   return false;
@@ -444,18 +432,24 @@ function DailyChecklistsPage() {
         const freezerItem = checklist?.items.find((i) => i.response_type === "freezer_temperatures");
         if (freezerItem && companyId && unitId) {
           const ans = (exec.answers_data?.[freezerItem.id] as FreezerTempsAns | undefined) ?? null;
-          const temps = ans?.temps ?? [];
-          const offList = ans?.off ?? [];
-          const unsafe: { idx: number; temp: number }[] = [];
-          temps.forEach((raw, idx) => {
-            if (offList[idx] === true) return;
-            if (raw === "" || raw === null || raw === undefined) return;
-            const num = Number(raw);
-            if (Number.isFinite(num) && num > -18) unsafe.push({ idx, temp: num });
+          const scheduleMap =
+            ans?.schedules && Object.keys(ans.schedules).length > 0
+              ? ans.schedules
+              : { Conferência: { temps: ans?.temps ?? [], off: ans?.off ?? [] } };
+          const unsafe: { schedule: string; idx: number; temp: number }[] = [];
+          Object.entries(scheduleMap).forEach(([schedule, entry]) => {
+            (entry.temps ?? []).forEach((raw, idx) => {
+              if ((entry.off ?? [])[idx] === true) return;
+              if (raw === "" || raw === null || raw === undefined) return;
+              const num = Number(raw);
+              if (Number.isFinite(num) && num > -18) unsafe.push({ schedule, idx, temp: num });
+            });
           });
           if (unsafe.length > 0) {
             const unitName = unit?.name ?? "Unidade";
-            const details = unsafe.map((u) => `Freezer ${u.idx + 1}: ${u.temp.toFixed(1)}°C`).join(", ");
+            const details = unsafe
+              .map((u) => `Freezer ${u.idx + 1} (${u.schedule}): ${u.temp.toFixed(1)}°C`)
+              .join(", ");
 
             // 1) Ocorrências (uma por freezer com problema)
             const occRows = unsafe.map((u) => ({
@@ -463,7 +457,7 @@ function DailyChecklistsPage() {
               unit_id: unitId,
               routine_type: "freezers",
               title: `Temperatura acima do limite - Freezer ${u.idx + 1}`,
-              description: `Freezer ${u.idx + 1} registrou ${u.temp.toFixed(1)}°C (limite: -18°C) em ${unitName}.`,
+              description: `Freezer ${u.idx + 1} registrou ${u.temp.toFixed(1)}°C (limite: -18°C) em ${unitName} às ${u.schedule}.`,
               severity: u.temp > -10 ? "critical" : "warning",
               status: "open",
             }));
@@ -1069,72 +1063,6 @@ function AnswerRow({
     );
   }
 
-  if (item.response_type === "freezer_grid") {
-    // legacy
-    const grid =
-      current && typeof current === "object"
-        ? (current as { count: number; temps: (string | number)[] })
-        : { count: 0, temps: [] };
-    const setCount = (n: number) => {
-      const count = Math.max(0, Math.min(50, Math.floor(n) || 0));
-      const temps = Array.from({ length: count }, (_, i) => grid.temps[i] ?? "");
-      onAnswer({ count, temps });
-    };
-    const setTemp = (idx: number, v: string) => {
-      const temps = [...grid.temps];
-      temps[idx] = v;
-      onAnswer({ count: grid.count, temps });
-    };
-    return (
-      <div className="flex flex-col gap-2">
-        <Label className="text-sm">{item.question}</Label>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Qtd. freezers:</span>
-          <Input
-            type="number"
-            min="0"
-            max="50"
-            className="w-20"
-            disabled={locked}
-            defaultValue={grid.count || ""}
-            onBlur={(e) => setCount(parseInt(e.target.value, 10))}
-          />
-        </div>
-        {grid.count > 0 && (
-          <div className="grid grid-cols-3 gap-2">
-            {Array.from({ length: grid.count }).map((_, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
-                <Input
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  placeholder="°C (ex: -20)"
-                  disabled={locked}
-                  defaultValue={grid.temps[i] ?? ""}
-                  onChange={(e) => {
-                    const cleaned = e.target.value
-                      .replace(/[^0-9.,\-]/g, "")
-                      .replace(/(?!^)-/g, "")
-                      .replace(/(,.*),/g, "$1")
-                      .replace(/(\..*)\./g, "$1");
-                    if (e.target.value !== cleaned) e.target.value = cleaned;
-                  }}
-                  onBlur={(e) => {
-                    const normalized = e.target.value.replace(",", ".").trim();
-                    const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
-                    const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
-                    setTemp(i, value === "" ? "" : String(value));
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // boolean
   const checked = typeof current === "boolean" ? current : !!exec.checked_items?.[item.id];
   return (
@@ -1160,18 +1088,19 @@ function FreezerTemperaturesRow({
 }) {
   const n = unit?.freezer_count ?? 0;
   const schedules = (unit?.measurement_schedules ?? []).filter(Boolean);
-  const slots = schedules.length > 0 ? schedules : ["Conferência"];
   const saved = current?.schedules ?? {};
 
-  const firstPending = Math.max(
-    0,
-    slots.findIndex((s) => !saved[s]),
-  );
+  const firstPending = Math.max(0, schedules.findIndex((s) => !saved[s]));
   const [activeIdx, setActiveIdx] = useState<number>(firstPending === -1 ? 0 : firstPending);
   const [justSaved, setJustSaved] = useState(false);
 
-  const slot = slots[Math.min(activeIdx, slots.length - 1)];
-  const entry = saved[slot];
+  useEffect(() => {
+    if (schedules.length === 0) return;
+    if (activeIdx >= schedules.length) setActiveIdx(0);
+  }, [activeIdx, schedules.length]);
+
+  const slot = schedules[Math.min(activeIdx, schedules.length - 1)];
+  const entry = slot ? saved[slot] : null;
   const isEditing = !!entry;
 
   const [temps, setTemps] = useState<(string | number)[]>(() =>
@@ -1181,12 +1110,24 @@ function FreezerTemperaturesRow({
 
   // Recarrega os valores ao trocar de horário
   useEffect(() => {
+    if (!slot) return;
     const e = saved[slot];
     setTemps(Array.from({ length: n }, (_, i) => e?.temps?.[i] ?? ""));
     setOff(Array.from({ length: n }, (_, i) => e?.off?.[i] === true));
     setJustSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot, n]);
+
+  if (schedules.length === 0) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm">{item.question}</Label>
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+          Nenhum horário de conferência configurado. Peça ao responsável para configurar os horários na tela de Rotina Diária.
+        </div>
+      </div>
+    );
+  }
 
   if (n <= 0) {
     return (
@@ -1200,7 +1141,7 @@ function FreezerTemperaturesRow({
   }
 
   const complete = temps.every((t, i) => off[i] === true || (t !== "" && t !== null && t !== undefined));
-  const hasNext = activeIdx < slots.length - 1;
+  const hasNext = activeIdx < schedules.length - 1;
 
   const save = () => {
     const nextSchedules: Record<string, FreezerScheduleEntry> = {
@@ -1225,30 +1166,11 @@ function FreezerTemperaturesRow({
 
   return (
     <div className="flex flex-col gap-3">
-      <Label className="text-sm">{item.question}</Label>
-
-      <div className="flex flex-wrap gap-1.5">
-        {slots.map((s, i) => {
-          const done = !!saved[s];
-          const active = i === activeIdx;
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setActiveIdx(i)}
-              className={`text-[11px] rounded-full border px-2.5 py-1 ${
-                active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : done
-                    ? "bg-green-50 text-green-700 border-green-200"
-                    : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {done && !active ? "✓ " : ""}
-              {s}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between">
+        <Label className="text-sm">{item.question}</Label>
+        <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+          {slot}
+        </span>
       </div>
 
       {justSaved ? (
@@ -1269,7 +1191,7 @@ function FreezerTemperaturesRow({
             </Button>
           ) : (
             <div className="text-xs text-muted-foreground">
-              Todas as conferências do dia foram registradas. Você pode selecionar um horário acima para editar.
+              Todas as conferências do dia foram registradas.
             </div>
           )}
           <Button type="button" variant="ghost" size="sm" onClick={() => setJustSaved(false)}>
@@ -1535,7 +1457,6 @@ function ManageItemsDialog({
     boolean: "Sim/Não",
     text: "Texto livre",
     money: "Valor (R$)",
-    freezer_grid: "Grade freezers (legado)",
     pdv_opening: "Abertura de PDVs",
     pdv_closing: "Fechamento de PDVs",
     freezer_temperatures: "Temperaturas dos freezers",
@@ -1923,20 +1844,6 @@ function renderAnswer(item: ChecklistItem, v: AnswerValue | undefined, detail: H
             className="w-full max-h-64 object-contain rounded border bg-slate-50"
           />
         </a>
-      );
-    }
-    case "freezer_grid": {
-      const grid = (v as { count: number; temps: (string | number)[] }) ?? { count: 0, temps: [] };
-      if (!grid.count) return <span className="text-muted-foreground">Não preenchido</span>;
-      return (
-        <ul className="space-y-0.5">
-          {grid.temps.map((t, i) => (
-            <li key={i} className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Freezer {i + 1}</span>
-              <span>{t}°C</span>
-            </li>
-          ))}
-        </ul>
       );
     }
   }
