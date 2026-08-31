@@ -1128,6 +1128,7 @@ export type Database = {
           invite_code: string
           latitude: number | null
           longitude: number | null
+          measurement_schedules: string[]
           name: string
           pdv_count: number | null
           score: number | null
@@ -1145,6 +1146,7 @@ export type Database = {
           invite_code: string
           latitude?: number | null
           longitude?: number | null
+          measurement_schedules?: string[]
           name: string
           pdv_count?: number | null
           score?: number | null
@@ -1162,6 +1164,7 @@ export type Database = {
           invite_code?: string
           latitude?: number | null
           longitude?: number | null
+          measurement_schedules?: string[]
           name?: string
           pdv_count?: number | null
           score?: number | null
