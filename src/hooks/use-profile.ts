@@ -13,6 +13,8 @@ export interface Profile {
   role: AppRole;
   trial_ends_at?: string | null;
   subscription_status?: string | null;
+  asaas_customer_id?: string | null;
+  asaas_subscription_id?: string | null;
 }
 
 export const PROFILE_QUERY_KEY = ["profile"] as const;
