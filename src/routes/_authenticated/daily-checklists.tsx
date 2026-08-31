@@ -67,7 +67,7 @@ type Checklist = {
 };
 type PdvOpeningAns = { values: (string | number)[] };
 type PdvClosingAns = { confirmed: boolean[] };
-type FreezerTempsAns = { temps: (string | number)[] };
+type FreezerTempsAns = { temps: (string | number)[]; off?: boolean[] };
 type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
@@ -98,6 +98,7 @@ type UnitConfig = {
   name: string;
   pdv_count: number | null;
   freezer_count: number | null;
+  measurement_schedules: string[] | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -198,7 +199,11 @@ function isAnswered(
       const n = unit?.freezer_count ?? 0;
       if (n <= 0) return false;
       const ans = (v as FreezerTempsAns) ?? { temps: [] };
-      return ans.temps.length === n && ans.temps.every((t) => t !== "" && t !== null && t !== undefined);
+      const off = ans.off ?? [];
+      return (
+        ans.temps.length === n &&
+        ans.temps.every((t, i) => off[i] === true || (t !== "" && t !== null && t !== undefined))
+      );
     }
     case "photo_upload": {
       const ans = v as PhotoAns | null;
@@ -240,7 +245,7 @@ function DailyChecklistsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units")
-        .select("id,name,pdv_count,freezer_count")
+        .select("id,name,pdv_count,freezer_count,measurement_schedules")
         .eq("id", unitId!)
         .maybeSingle();
       if (error) throw error;
@@ -436,8 +441,10 @@ function DailyChecklistsPage() {
         if (freezerItem && companyId && unitId) {
           const ans = (exec.answers_data?.[freezerItem.id] as FreezerTempsAns | undefined) ?? null;
           const temps = ans?.temps ?? [];
+          const offList = ans?.off ?? [];
           const unsafe: { idx: number; temp: number }[] = [];
           temps.forEach((raw, idx) => {
+            if (offList[idx] === true) return;
             if (raw === "" || raw === null || raw === undefined) return;
             const num = Number(raw);
             if (Number.isFinite(num) && num > -18) unsafe.push({ idx, temp: num });
