@@ -160,15 +160,15 @@ function monthLabel(month: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-/** Últimos 24 meses + próximos 2, para navegação. */
+/** Próximos 2 meses + últimos 24, do mais recente ao mais antigo. */
 function buildMonthOptions() {
   const now = new Date();
   const out: string[] = [];
-  for (let i = 2; i >= -23; i--) {
+  for (let i = -2; i <= 23; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
     out.push(d.toISOString().slice(0, 7));
   }
-  return out.reverse();
+  return out;
 }
 
 
