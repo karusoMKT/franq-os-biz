@@ -396,10 +396,77 @@ function FinancePage() {
       )}
 
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="transactions">Lançamentos</TabsTrigger>
           <TabsTrigger value="recurring">Gastos Fixos</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="history" className="space-y-3 mt-3">
+          <h3 className="text-sm font-semibold">Histórico Mensal</h3>
+          {monthlyHistoryQuery.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : monthlyHistoryQuery.isError ? (
+            <Card className="p-4 text-sm text-red-600">Erro ao carregar histórico.</Card>
+          ) : (monthlyHistoryQuery.data ?? []).length === 0 ? (
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              Nenhum histórico disponível.
+            </Card>
+          ) : (
+            <ul className="space-y-2">
+              {(monthlyHistoryQuery.data ?? []).map((m) => {
+                const profit = m.revenue - m.expense;
+                return (
+                  <li key={m.month}>
+                    <Card
+                      className={cn(
+                        "p-3 space-y-2 cursor-pointer",
+                        m.month === selectedMonth && "ring-1 ring-[color:var(--franqos-blue)]",
+                      )}
+                      onClick={() => setSelectedMonth(m.month)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">{monthLabel(m.month)}</span>
+                        <Badge
+                          className={cn(
+                            "text-[10px]",
+                            profit >= 0
+                              ? "bg-emerald-600 hover:bg-emerald-600"
+                              : "bg-red-600 hover:bg-red-600",
+                          )}
+                        >
+                          {profit >= 0 ? "Lucro" : "Prejuízo"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <div className="text-muted-foreground">Faturamento</div>
+                          <div className="font-semibold text-emerald-600">{fmtBRL(m.revenue)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Despesas</div>
+                          <div className="font-semibold text-red-600">{fmtBRL(m.expense)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Lucro líquido</div>
+                          <div
+                            className={cn(
+                              "font-semibold",
+                              profit >= 0 ? "text-emerald-600" : "text-red-600",
+                            )}
+                          >
+                            {fmtBRL(profit)}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+
 
         <TabsContent value="transactions" className="space-y-3 mt-3">
           <div className="flex items-center justify-between">
