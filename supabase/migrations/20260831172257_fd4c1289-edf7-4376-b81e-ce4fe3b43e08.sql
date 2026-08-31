@@ -1,0 +1,1 @@
+ALTER TABLE public.units ADD COLUMN IF NOT EXISTS measurement_schedules text[] NOT NULL DEFAULT '{}'::text[];

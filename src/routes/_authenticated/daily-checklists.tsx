@@ -67,7 +67,7 @@ type Checklist = {
 };
 type PdvOpeningAns = { values: (string | number)[] };
 type PdvClosingAns = { confirmed: boolean[] };
-type FreezerTempsAns = { temps: (string | number)[] };
+type FreezerTempsAns = { temps: (string | number)[]; off?: boolean[] };
 type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
@@ -98,6 +98,7 @@ type UnitConfig = {
   name: string;
   pdv_count: number | null;
   freezer_count: number | null;
+  measurement_schedules: string[] | null;
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -198,7 +199,11 @@ function isAnswered(
       const n = unit?.freezer_count ?? 0;
       if (n <= 0) return false;
       const ans = (v as FreezerTempsAns) ?? { temps: [] };
-      return ans.temps.length === n && ans.temps.every((t) => t !== "" && t !== null && t !== undefined);
+      const off = ans.off ?? [];
+      return (
+        ans.temps.length === n &&
+        ans.temps.every((t, i) => off[i] === true || (t !== "" && t !== null && t !== undefined))
+      );
     }
     case "photo_upload": {
       const ans = v as PhotoAns | null;
@@ -240,7 +245,7 @@ function DailyChecklistsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("units")
-        .select("id,name,pdv_count,freezer_count")
+        .select("id,name,pdv_count,freezer_count,measurement_schedules")
         .eq("id", unitId!)
         .maybeSingle();
       if (error) throw error;
@@ -436,8 +441,10 @@ function DailyChecklistsPage() {
         if (freezerItem && companyId && unitId) {
           const ans = (exec.answers_data?.[freezerItem.id] as FreezerTempsAns | undefined) ?? null;
           const temps = ans?.temps ?? [];
+          const offList = ans?.off ?? [];
           const unsafe: { idx: number; temp: number }[] = [];
           temps.forEach((raw, idx) => {
+            if (offList[idx] === true) return;
             if (raw === "" || raw === null || raw === undefined) return;
             const num = Number(raw);
             if (Number.isFinite(num) && num > -18) unsafe.push({ idx, temp: num });
@@ -789,12 +796,20 @@ function DailyChecklistsPage() {
 function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => void }) {
   const [pdv, setPdv] = useState<string>(String(unit.pdv_count ?? ""));
   const [freezer, setFreezer] = useState<string>(String(unit.freezer_count ?? ""));
+  const [schedules, setSchedules] = useState<string[]>(unit.measurement_schedules ?? []);
 
   const save = useMutation({
     mutationFn: async () => {
       const pdvN = Math.max(0, Math.min(50, parseInt(pdv, 10) || 0));
       const frzN = Math.max(0, Math.min(50, parseInt(freezer, 10) || 0));
-      const { error } = await supabase.from("units").update({ pdv_count: pdvN, freezer_count: frzN }).eq("id", unit.id);
+      const cleanSchedules = schedules
+        .map((s) => s.trim())
+        .filter((s) => /^\d{2}:\d{2}$/.test(s))
+        .sort();
+      const { error } = await supabase
+        .from("units")
+        .update({ pdv_count: pdvN, freezer_count: frzN, measurement_schedules: cleanSchedules })
+        .eq("id", unit.id);
       if (error) throw error;
       return { pdvN, frzN };
     },
@@ -805,10 +820,13 @@ function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => vo
     onError: (e: any) => toast.error(e.message ?? "Erro ao salvar"),
   });
 
-  const dirty = String(unit.pdv_count ?? "") !== pdv || String(unit.freezer_count ?? "") !== freezer;
+  const dirty =
+    String(unit.pdv_count ?? "") !== pdv ||
+    String(unit.freezer_count ?? "") !== freezer ||
+    JSON.stringify(unit.measurement_schedules ?? []) !== JSON.stringify(schedules);
 
   return (
-    <Card className="p-3 space-y-2">
+    <Card className="p-3 space-y-3">
       <div className="text-xs font-medium text-muted-foreground">Configuração da unidade — {unit.name}</div>
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
@@ -820,6 +838,44 @@ function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => vo
           <Input type="number" min="0" max="50" value={freezer} onChange={(e) => setFreezer(e.target.value)} />
         </div>
       </div>
+
+      <div className="space-y-2">
+        <Label className="text-[11px]">Horários das conferências de temperatura</Label>
+        {schedules.length === 0 && (
+          <div className="text-[11px] text-muted-foreground">Nenhum horário definido.</div>
+        )}
+        <div className="space-y-2">
+          {schedules.map((time, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={time}
+                onChange={(e) => setSchedules((prev) => prev.map((t, j) => (j === i ? e.target.value : t)))}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setSchedules((prev) => prev.filter((_, j) => j !== i))}
+                aria-label={`Remover horário ${i + 1}`}
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full"
+          onClick={() => setSchedules((prev) => [...prev, "09:00"])}
+        >
+          <Plus size={14} className="mr-1.5" />
+          Adicionar horário
+        </Button>
+      </div>
+
       <Button size="sm" className="w-full" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
         <Save size={14} className="mr-1.5" />
         Salvar configuração
@@ -980,24 +1036,36 @@ function AnswerRow({
       );
     }
 
+    const offList = ans.off ?? [];
+    const schedules = unit?.measurement_schedules ?? [];
+
+    const emit = (temps: (string | number)[], off: boolean[]) => onAnswer({ temps, off });
+
     return (
       <div className="flex flex-col gap-2">
         <Label className="text-sm">{item.question}</Label>
-        <div className="grid grid-cols-3 gap-2">
+        {schedules.length > 0 && (
+          <div className="text-[10px] text-muted-foreground">
+            Conferências do dia: {schedules.join(" · ")}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: n }).map((_, i) => {
+            const isOff = offList[i] === true;
             const raw = ans.temps[i];
             const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
-            const unsafe = Number.isFinite(num) && num > -18;
+            const unsafe = !isOff && Number.isFinite(num) && num > -18;
             return (
-              <div key={i} className="flex flex-col gap-1">
+              <div key={i} className="flex flex-col gap-1 rounded border p-2">
                 <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
                 <Input
+                  key={`${i}-${isOff ? "off" : "on"}`}
                   type="text"
                   inputMode="text"
                   autoComplete="off"
-                  placeholder="°C (ex: -20)"
-                  disabled={locked}
-                  defaultValue={raw ?? ""}
+                  placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
+                  disabled={locked || isOff}
+                  defaultValue={isOff ? "" : (raw ?? "")}
                   className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
                   onChange={(e) => {
                     // Permite dígitos, um sinal de menos no início e um separador decimal (. ou ,)
@@ -1015,16 +1083,32 @@ function AnswerRow({
                     const temps = Array.from({ length: n }, (_, j) =>
                       j === i ? value : (ans.temps[j] ?? ""),
                     );
-                    onAnswer({ temps });
+                    emit(temps, Array.from({ length: n }, (_, j) => offList[j] === true));
                   }}
                 />
+                <label className="flex items-center gap-1.5 text-[11px]">
+                  <Checkbox
+                    checked={isOff}
+                    disabled={locked}
+                    onCheckedChange={(v) => {
+                      const nextOff = Array.from({ length: n }, (_, j) =>
+                        j === i ? !!v : offList[j] === true,
+                      );
+                      const temps = Array.from({ length: n }, (_, j) =>
+                        j === i && !!v ? null : (ans.temps[j] ?? ""),
+                      ) as (string | number)[];
+                      emit(temps, nextOff);
+                    }}
+                  />
+                  <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
+                </label>
                 {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
               </div>
             );
           })}
         </div>
         <span className="text-[10px] text-muted-foreground">
-          Temperatura ideal: -18°C ou menor. Valores negativos são aceitos.
+          Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
         </span>
       </div>
     );
@@ -1686,13 +1770,18 @@ function renderAnswer(item: ChecklistItem, v: AnswerValue | undefined, detail: H
       return (
         <ul className="space-y-0.5">
           {ans.temps.map((t, i) => {
+            const isOff = (ans.off ?? [])[i] === true;
             const num = Number(t);
-            const unsafe = Number.isFinite(num) && num > -18;
+            const unsafe = !isOff && Number.isFinite(num) && num > -18;
             return (
               <li key={i} className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Freezer {i + 1}</span>
-                <span className={unsafe ? "text-destructive font-medium" : ""}>
-                  {t === "" || t === null || t === undefined ? "—" : `${Number(t).toFixed(1)}°C`}
+                <span className={unsafe ? "text-destructive font-medium" : isOff ? "text-muted-foreground" : ""}>
+                  {isOff
+                    ? "Desligado"
+                    : t === "" || t === null || t === undefined
+                      ? "—"
+                      : `${Number(t).toFixed(1)}°C`}
                   {unsafe && " ⚠"}
                 </span>
               </li>
