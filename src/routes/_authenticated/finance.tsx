@@ -142,10 +142,35 @@ export function adjustDateToPeriodEnd(dateStr: string, period: PeriodType): stri
   return dt.toISOString().slice(0, 10);
 }
 
-function isInCurrentMonth(dateStr: string | null) {
-  if (!dateStr) return false;
-  return dateStr.slice(0, 7) === currentMonth();
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const end = `${month}-${String(last).padStart(2, "0")}`;
+  return { start, end };
 }
+
+function monthLabel(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Próximos 2 meses + últimos 24, do mais recente ao mais antigo. */
+function buildMonthOptions() {
+  const now = new Date();
+  const out: string[] = [];
+  for (let i = -2; i <= 23; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    out.push(d.toISOString().slice(0, 7));
+  }
+  return out;
+}
+
 
 function FinancePage() {
   const { profile, loading } = useProfile();
@@ -170,19 +195,48 @@ function FinancePage() {
   }, [selectedUnitId, units]);
   const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
   const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<RecurringExpense | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth());
+  const monthOptions = useMemo(() => buildMonthOptions(), []);
+  const range = useMemo(() => monthRange(selectedMonth), [selectedMonth]);
 
   const txQuery = useQuery({
     enabled: !!companyId && unitIds.length > 0,
-    queryKey: ["transactions", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryKey: ["transactions", companyId, selectedUnitId ?? "all", unitIds.length, selectedMonth],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
         .in("unit_id", unitIds)
+        .gte("date", range.start)
+        .lte("date", range.end)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Transaction[];
+    },
+  });
+
+  const monthlyHistoryQuery = useQuery({
+    enabled: !!companyId && unitIds.length > 0,
+    queryKey: ["transactions-history", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("type, amount, date")
+        .in("unit_id", unitIds)
+        .order("date", { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      const map = new Map<string, { month: string; revenue: number; expense: number }>();
+      for (const row of (data ?? []) as { type: string; amount: number; date: string | null }[]) {
+        if (!row.date) continue;
+        const m = row.date.slice(0, 7);
+        const entry = map.get(m) ?? { month: m, revenue: 0, expense: 0 };
+        if (row.type === "income") entry.revenue += Number(row.amount);
+        else entry.expense += Number(row.amount);
+        map.set(m, entry);
+      }
+      return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
     },
   });
 
@@ -202,12 +256,14 @@ function FinancePage() {
 
   const accountsPayableQuery = useQuery({
     enabled: !!companyId,
-    queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length, selectedMonth],
     queryFn: async () => {
       let q = supabase
         .from("accounts_payable")
         .select("*")
-        .eq("company_id", companyId!);
+        .eq("company_id", companyId!)
+        .gte("due_date", range.start)
+        .lte("due_date", range.end);
       // Inclui contas sem unidade vinculada (ex.: escaneadas por owner sem unidade)
       if (selectedUnitId) {
         q = q.or(`unit_id.eq.${selectedUnitId},unit_id.is.null`);
@@ -224,10 +280,10 @@ function FinancePage() {
     const revenue = list.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
     const expenseManual = list.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
 
-    // Recurring: sum current-month recurring expenses NOT already registered as tx this month.
+    // Gastos fixos do mês selecionado que ainda não têm lançamento equivalente.
     const monthExpenseCategories = new Set(
       list
-        .filter((t) => t.type === "expense" && isInCurrentMonth(t.date))
+        .filter((t) => t.type === "expense")
         .map((t) => `${t.unit_id ?? ""}::${t.category}`),
     );
     const recurringMonth = (recurringQuery.data ?? [])
@@ -240,6 +296,7 @@ function FinancePage() {
     return { revenue, expense, profit, margin, recurringMonth };
   }, [txQuery.data, recurringQuery.data]);
 
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("transactions").delete().eq("id", id);
@@ -249,6 +306,7 @@ function FinancePage() {
       toast.success("Lançamento excluído.");
       setPendingDeleteTx(null);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
@@ -279,6 +337,23 @@ function FinancePage() {
       title="Financeiro"
       subtitle={isOverview ? "Visão geral da rede" : selectedUnit?.name ?? "Unidade"}
     >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">Período</span>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {monthOptions.map((m) => (
+              <SelectItem key={m} value={m}>
+                {monthLabel(m)}
+                {m === currentMonth() ? " (atual)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <BillScannerButton profile={profile} />
 
       <AccountsPayableSection
@@ -286,6 +361,7 @@ function FinancePage() {
         units={units}
         isOverview={isOverview}
       />
+
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
@@ -321,10 +397,77 @@ function FinancePage() {
       )}
 
       <Tabs defaultValue="transactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="transactions">Lançamentos</TabsTrigger>
           <TabsTrigger value="recurring">Gastos Fixos</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="history" className="space-y-3 mt-3">
+          <h3 className="text-sm font-semibold">Histórico Mensal</h3>
+          {monthlyHistoryQuery.isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : monthlyHistoryQuery.isError ? (
+            <Card className="p-4 text-sm text-red-600">Erro ao carregar histórico.</Card>
+          ) : (monthlyHistoryQuery.data ?? []).length === 0 ? (
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              Nenhum histórico disponível.
+            </Card>
+          ) : (
+            <ul className="space-y-2">
+              {(monthlyHistoryQuery.data ?? []).map((m) => {
+                const profit = m.revenue - m.expense;
+                return (
+                  <li key={m.month}>
+                    <Card
+                      className={cn(
+                        "p-3 space-y-2 cursor-pointer",
+                        m.month === selectedMonth && "ring-1 ring-[color:var(--franqos-blue)]",
+                      )}
+                      onClick={() => setSelectedMonth(m.month)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">{monthLabel(m.month)}</span>
+                        <Badge
+                          className={cn(
+                            "text-[10px]",
+                            profit >= 0
+                              ? "bg-emerald-600 hover:bg-emerald-600"
+                              : "bg-red-600 hover:bg-red-600",
+                          )}
+                        >
+                          {profit >= 0 ? "Lucro" : "Prejuízo"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div>
+                          <div className="text-muted-foreground">Faturamento</div>
+                          <div className="font-semibold text-emerald-600">{fmtBRL(m.revenue)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Despesas</div>
+                          <div className="font-semibold text-red-600">{fmtBRL(m.expense)}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Lucro líquido</div>
+                          <div
+                            className={cn(
+                              "font-semibold",
+                              profit >= 0 ? "text-emerald-600" : "text-red-600",
+                            )}
+                          >
+                            {fmtBRL(profit)}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+
 
         <TabsContent value="transactions" className="space-y-3 mt-3">
           <div className="flex items-center justify-between">
@@ -468,6 +611,7 @@ function FinancePage() {
         forcedUnitId={selectedUnitId}
         onSaved={() => {
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
           queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
         }}
       />
@@ -588,6 +732,7 @@ function AccountsPayableSection({
       toast.success("Conta paga e lançada nas despesas.");
       queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
