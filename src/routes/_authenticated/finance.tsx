@@ -195,19 +195,48 @@ function FinancePage() {
   }, [selectedUnitId, units]);
   const [pendingDeleteTx, setPendingDeleteTx] = useState<Transaction | null>(null);
   const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<RecurringExpense | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth());
+  const monthOptions = useMemo(() => buildMonthOptions(), []);
+  const range = useMemo(() => monthRange(selectedMonth), [selectedMonth]);
 
   const txQuery = useQuery({
     enabled: !!companyId && unitIds.length > 0,
-    queryKey: ["transactions", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryKey: ["transactions", companyId, selectedUnitId ?? "all", unitIds.length, selectedMonth],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
         .in("unit_id", unitIds)
+        .gte("date", range.start)
+        .lte("date", range.end)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Transaction[];
+    },
+  });
+
+  const monthlyHistoryQuery = useQuery({
+    enabled: !!companyId && unitIds.length > 0,
+    queryKey: ["transactions-history", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("type, amount, date")
+        .in("unit_id", unitIds)
+        .order("date", { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      const map = new Map<string, { month: string; revenue: number; expense: number }>();
+      for (const row of (data ?? []) as { type: string; amount: number; date: string | null }[]) {
+        if (!row.date) continue;
+        const m = row.date.slice(0, 7);
+        const entry = map.get(m) ?? { month: m, revenue: 0, expense: 0 };
+        if (row.type === "income") entry.revenue += Number(row.amount);
+        else entry.expense += Number(row.amount);
+        map.set(m, entry);
+      }
+      return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
     },
   });
 
@@ -227,12 +256,14 @@ function FinancePage() {
 
   const accountsPayableQuery = useQuery({
     enabled: !!companyId,
-    queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length],
+    queryKey: ["accounts_payable", companyId, selectedUnitId ?? "all", unitIds.length, selectedMonth],
     queryFn: async () => {
       let q = supabase
         .from("accounts_payable")
         .select("*")
-        .eq("company_id", companyId!);
+        .eq("company_id", companyId!)
+        .gte("due_date", range.start)
+        .lte("due_date", range.end);
       // Inclui contas sem unidade vinculada (ex.: escaneadas por owner sem unidade)
       if (selectedUnitId) {
         q = q.or(`unit_id.eq.${selectedUnitId},unit_id.is.null`);
@@ -249,10 +280,10 @@ function FinancePage() {
     const revenue = list.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
     const expenseManual = list.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
 
-    // Recurring: sum current-month recurring expenses NOT already registered as tx this month.
+    // Gastos fixos do mês selecionado que ainda não têm lançamento equivalente.
     const monthExpenseCategories = new Set(
       list
-        .filter((t) => t.type === "expense" && isInCurrentMonth(t.date))
+        .filter((t) => t.type === "expense")
         .map((t) => `${t.unit_id ?? ""}::${t.category}`),
     );
     const recurringMonth = (recurringQuery.data ?? [])
@@ -264,6 +295,7 @@ function FinancePage() {
     const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
     return { revenue, expense, profit, margin, recurringMonth };
   }, [txQuery.data, recurringQuery.data]);
+
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
