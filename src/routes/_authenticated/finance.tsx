@@ -306,6 +306,7 @@ function FinancePage() {
       toast.success("Lançamento excluído.");
       setPendingDeleteTx(null);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
@@ -610,6 +611,7 @@ function FinancePage() {
         forcedUnitId={selectedUnitId}
         onSaved={() => {
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
           queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
         }}
       />
@@ -730,6 +732,7 @@ function AccountsPayableSection({
       toast.success("Conta paga e lançada nas despesas.");
       queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
