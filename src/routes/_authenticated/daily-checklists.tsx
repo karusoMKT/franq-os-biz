@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   ClipboardCheck,
   CheckCircle2,
-  Lock,
   ArrowLeft,
   AlertTriangle,
   Settings2,
@@ -67,7 +66,12 @@ type Checklist = {
 };
 type PdvOpeningAns = { values: (string | number)[] };
 type PdvClosingAns = { confirmed: boolean[] };
-type FreezerTempsAns = { temps: (string | number)[]; off?: boolean[] };
+type FreezerScheduleEntry = { temps: (string | number)[]; off?: boolean[]; saved_at?: string };
+type FreezerTempsAns = {
+  temps: (string | number)[];
+  off?: boolean[];
+  schedules?: Record<string, FreezerScheduleEntry>;
+};
 type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
@@ -564,7 +568,8 @@ function DailyChecklistsPage() {
   }
 
   if (activeExec && activeChecklist) {
-    const locked = activeExec.status === "completed";
+    const isCompleted = activeExec.status === "completed";
+    const locked = false;
     const total = activeChecklist.items.length;
     const done = activeChecklist.items.filter((i) =>
       isAnswered(i, activeExec.answers_data, activeExec.checked_items, unit ?? null),
@@ -574,7 +579,7 @@ function DailyChecklistsPage() {
       <MobileShell
         profile={profile}
         title={activeChecklist.title}
-        subtitle={locked ? "Finalizado" : `${done}/${total} itens`}
+        subtitle={isCompleted ? `Finalizado · editável · ${done}/${total}` : `${done}/${total} itens`}
       >
         <Button variant="ghost" size="sm" onClick={() => setActiveId(null)} className="gap-1 -ml-2">
           <ArrowLeft size={16} /> Voltar
@@ -618,21 +623,21 @@ function DailyChecklistsPage() {
           )}
         </Card>
 
-        {locked ? (
-          <Card className="p-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 border-green-200">
-            <Lock size={16} /> Checklist finalizado. Não é mais editável.
+        {isCompleted && (
+          <Card className="p-3 flex items-center gap-2 text-xs text-green-700 bg-green-50 border-green-200">
+            <CheckCircle2 size={16} /> Checklist finalizado — você ainda pode alterar as respostas.
           </Card>
-        ) : (
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={finishMutation.isPending || total === 0}
-            onClick={() => finishMutation.mutate(activeExec)}
-          >
-            <CheckCircle2 size={18} className="mr-2" />
-            Finalizar Checklist
-          </Button>
         )}
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={finishMutation.isPending || total === 0}
+          onClick={() => finishMutation.mutate(activeExec)}
+        >
+          <CheckCircle2 size={18} className="mr-2" />
+          {isCompleted ? "Atualizar Checklist" : "Finalizar Checklist"}
+        </Button>
+
       </MobileShell>
     );
   }
@@ -728,7 +733,7 @@ function DailyChecklistsPage() {
                           else startMutation.mutate(c);
                         }}
                       >
-                        {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
+                        {completed ? "Editar" : exec ? "Continuar" : "Iniciar"}
                       </Button>
                     </Card>
                   </li>
@@ -1022,97 +1027,17 @@ function AnswerRow({
   }
 
   if (item.response_type === "freezer_temperatures") {
-    const n = unit?.freezer_count ?? 0;
-    const ans = (current as FreezerTempsAns) ?? { temps: [] };
-
-    if (n <= 0) {
-      return (
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm">{item.question}</Label>
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-            Configure a "Quantidade de Freezers" da unidade para preencher este item.
-          </div>
-        </div>
-      );
-    }
-
-    const offList = ans.off ?? [];
-    const schedules = unit?.measurement_schedules ?? [];
-
-    const emit = (temps: (string | number)[], off: boolean[]) => onAnswer({ temps, off });
-
     return (
-      <div className="flex flex-col gap-2">
-        <Label className="text-sm">{item.question}</Label>
-        {schedules.length > 0 && (
-          <div className="text-[10px] text-muted-foreground">
-            Conferências do dia: {schedules.join(" · ")}
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2">
-          {Array.from({ length: n }).map((_, i) => {
-            const isOff = offList[i] === true;
-            const raw = ans.temps[i];
-            const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
-            const unsafe = !isOff && Number.isFinite(num) && num > -18;
-            return (
-              <div key={i} className="flex flex-col gap-1 rounded border p-2">
-                <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
-                <Input
-                  key={`${i}-${isOff ? "off" : "on"}`}
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
-                  disabled={locked || isOff}
-                  defaultValue={isOff ? "" : (raw ?? "")}
-                  className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
-                  onChange={(e) => {
-                    // Permite dígitos, um sinal de menos no início e um separador decimal (. ou ,)
-                    const cleaned = e.target.value
-                      .replace(/[^0-9.,\-]/g, "")
-                      .replace(/(?!^)-/g, "")
-                      .replace(/(,.*),/g, "$1")
-                      .replace(/(\..*)\./g, "$1");
-                    if (e.target.value !== cleaned) e.target.value = cleaned;
-                  }}
-                  onBlur={(e) => {
-                    const normalized = e.target.value.replace(",", ".").trim();
-                    const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
-                    const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
-                    const temps = Array.from({ length: n }, (_, j) =>
-                      j === i ? value : (ans.temps[j] ?? ""),
-                    );
-                    emit(temps, Array.from({ length: n }, (_, j) => offList[j] === true));
-                  }}
-                />
-                <label className="flex items-center gap-1.5 text-[11px]">
-                  <Checkbox
-                    checked={isOff}
-                    disabled={locked}
-                    onCheckedChange={(v) => {
-                      const nextOff = Array.from({ length: n }, (_, j) =>
-                        j === i ? !!v : offList[j] === true,
-                      );
-                      const temps = Array.from({ length: n }, (_, j) =>
-                        j === i && !!v ? null : (ans.temps[j] ?? ""),
-                      ) as (string | number)[];
-                      emit(temps, nextOff);
-                    }}
-                  />
-                  <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
-                </label>
-                {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
-              </div>
-            );
-          })}
-        </div>
-        <span className="text-[10px] text-muted-foreground">
-          Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
-        </span>
-      </div>
+      <FreezerTemperaturesRow
+        item={item}
+        unit={unit}
+        locked={locked}
+        current={(current as FreezerTempsAns | null) ?? null}
+        onAnswer={onAnswer}
+      />
     );
   }
+
 
   if (item.response_type === "text") {
     const val = typeof current === "string" ? current : "";
@@ -1219,6 +1144,203 @@ function AnswerRow({
     </div>
   );
 }
+
+function FreezerTemperaturesRow({
+  item,
+  unit,
+  locked,
+  current,
+  onAnswer,
+}: {
+  item: ChecklistItem;
+  unit: UnitConfig | null;
+  locked: boolean;
+  current: FreezerTempsAns | null;
+  onAnswer: (value: AnswerValue, alsoChecked?: boolean) => void;
+}) {
+  const n = unit?.freezer_count ?? 0;
+  const schedules = (unit?.measurement_schedules ?? []).filter(Boolean);
+  const slots = schedules.length > 0 ? schedules : ["Conferência"];
+  const saved = current?.schedules ?? {};
+
+  const firstPending = Math.max(
+    0,
+    slots.findIndex((s) => !saved[s]),
+  );
+  const [activeIdx, setActiveIdx] = useState<number>(firstPending === -1 ? 0 : firstPending);
+  const [justSaved, setJustSaved] = useState(false);
+
+  const slot = slots[Math.min(activeIdx, slots.length - 1)];
+  const entry = saved[slot];
+  const isEditing = !!entry;
+
+  const [temps, setTemps] = useState<(string | number)[]>(() =>
+    Array.from({ length: n }, (_, i) => entry?.temps?.[i] ?? ""),
+  );
+  const [off, setOff] = useState<boolean[]>(() => Array.from({ length: n }, (_, i) => entry?.off?.[i] === true));
+
+  // Recarrega os valores ao trocar de horário
+  useEffect(() => {
+    const e = saved[slot];
+    setTemps(Array.from({ length: n }, (_, i) => e?.temps?.[i] ?? ""));
+    setOff(Array.from({ length: n }, (_, i) => e?.off?.[i] === true));
+    setJustSaved(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slot, n]);
+
+  if (n <= 0) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm">{item.question}</Label>
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+          Configure a "Quantidade de Freezers" da unidade para preencher este item.
+        </div>
+      </div>
+    );
+  }
+
+  const complete = temps.every((t, i) => off[i] === true || (t !== "" && t !== null && t !== undefined));
+  const hasNext = activeIdx < slots.length - 1;
+
+  const save = () => {
+    const nextSchedules: Record<string, FreezerScheduleEntry> = {
+      ...saved,
+      [slot]: {
+        temps: temps.map((t, i) => (off[i] ? (null as unknown as string) : t)),
+        off: [...off],
+        saved_at: new Date().toISOString(),
+      },
+    };
+    onAnswer(
+      {
+        temps: nextSchedules[slot].temps,
+        off: nextSchedules[slot].off,
+        schedules: nextSchedules,
+      },
+      true,
+    );
+    setJustSaved(true);
+    toast.success(isEditing ? "Conferência atualizada" : `Conferência das ${slot} registrada`);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Label className="text-sm">{item.question}</Label>
+
+      <div className="flex flex-wrap gap-1.5">
+        {slots.map((s, i) => {
+          const done = !!saved[s];
+          const active = i === activeIdx;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setActiveIdx(i)}
+              className={`text-[11px] rounded-full border px-2.5 py-1 ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : done
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {done && !active ? "✓ " : ""}
+              {s}
+            </button>
+          );
+        })}
+      </div>
+
+      {justSaved ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">
+            <CheckCircle2 size={16} /> Conferência das {slot} salva com sucesso.
+          </div>
+          {hasNext ? (
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => {
+                setActiveIdx((i) => i + 1);
+                setJustSaved(false);
+              }}
+            >
+              Ir para a próxima conferência
+            </Button>
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              Todas as conferências do dia foram registradas. Você pode selecionar um horário acima para editar.
+            </div>
+          )}
+          <Button type="button" variant="ghost" size="sm" onClick={() => setJustSaved(false)}>
+            Editar esta conferência
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: n }).map((_, i) => {
+              const isOff = off[i] === true;
+              const raw = temps[i];
+              const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
+              const unsafe = !isOff && Number.isFinite(num) && num > -18;
+              return (
+                <div key={i} className="flex flex-col gap-1 rounded border p-2">
+                  <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
+                  <Input
+                    key={`${slot}-${i}-${isOff ? "off" : "on"}`}
+                    type="text"
+                    inputMode="text"
+                    autoComplete="off"
+                    placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
+                    disabled={locked || isOff}
+                    defaultValue={isOff ? "" : (raw ?? "")}
+                    className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
+                    onChange={(e) => {
+                      const cleaned = e.target.value
+                        .replace(/[^0-9.,\-]/g, "")
+                        .replace(/(?!^)-/g, "")
+                        .replace(/(,.*),/g, "$1")
+                        .replace(/(\..*)\./g, "$1");
+                      if (e.target.value !== cleaned) e.target.value = cleaned;
+                    }}
+                    onBlur={(e) => {
+                      const normalized = e.target.value.replace(",", ".").trim();
+                      const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
+                      const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
+                      setTemps((prev) => prev.map((t, j) => (j === i ? value : t)));
+                    }}
+                  />
+                  <label className="flex items-center gap-1.5 text-[11px]">
+                    <Checkbox
+                      checked={isOff}
+                      disabled={locked}
+                      onCheckedChange={(v) => {
+                        setOff((prev) => prev.map((o, j) => (j === i ? !!v : o)));
+                        if (v) setTemps((prev) => prev.map((t, j) => (j === i ? "" : t)));
+                      }}
+                    />
+                    <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
+                  </label>
+                  {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <span className="text-[10px] text-muted-foreground">
+            Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
+          </span>
+
+          <Button type="button" className="w-full" disabled={locked || !complete} onClick={save}>
+            {isEditing ? "Salvar Edição" : "Concluir conferência"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 
 function PhotoUploadRow({
   item,
