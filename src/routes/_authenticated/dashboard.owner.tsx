@@ -100,12 +100,25 @@ function OwnerDashboard() {
     ? [selectedUnitId]
     : (data?.units ?? []).map((u: any) => u.id);
 
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const monthStart = `${monthKey}-01`;
+  const monthEnd = (() => {
+    const [y, m] = monthKey.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return `${monthKey}-${String(last).padStart(2, "0")}`;
+  })();
+
   const { data: financeData, isLoading: finLoading } = useQuery({
     enabled: unitIdsForFinance.length > 0,
-    queryKey: ["owner-dashboard-finance", companyId, selectedUnitId ?? "all", unitIdsForFinance.length],
+    queryKey: ["owner-dashboard-finance", companyId, selectedUnitId ?? "all", unitIdsForFinance.length, monthKey],
     queryFn: async () => {
       const [tx, rec] = await Promise.all([
-        supabase.from("transactions").select("type,amount,unit_id,date,category").in("unit_id", unitIdsForFinance),
+        supabase
+          .from("transactions")
+          .select("type,amount,unit_id,date,category")
+          .in("unit_id", unitIdsForFinance)
+          .gte("date", monthStart)
+          .lte("date", monthEnd),
         supabase.from("recurring_expenses").select("unit_id,amount,category").in("unit_id", unitIdsForFinance),
       ]);
       if (tx.error) throw tx.error;
@@ -119,6 +132,7 @@ function OwnerDashboard() {
     const recurring = financeData?.recurring ?? [];
     const revenue = list.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const expenseManual = list.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthExpenseKeys = new Set(
       list
