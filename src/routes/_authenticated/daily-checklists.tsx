@@ -67,7 +67,12 @@ type Checklist = {
 };
 type PdvOpeningAns = { values: (string | number)[] };
 type PdvClosingAns = { confirmed: boolean[] };
-type FreezerTempsAns = { temps: (string | number)[]; off?: boolean[] };
+type FreezerScheduleEntry = { temps: (string | number)[]; off?: boolean[]; saved_at?: string };
+type FreezerTempsAns = {
+  temps: (string | number)[];
+  off?: boolean[];
+  schedules?: Record<string, FreezerScheduleEntry>;
+};
 type PhotoAns = { url: string; path: string };
 type AnswerValue =
   | boolean
