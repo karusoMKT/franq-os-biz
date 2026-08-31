@@ -760,6 +760,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_subscription_id: string | null
           company_id: string | null
           created_at: string
           email: string | null
@@ -772,6 +774,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
@@ -784,6 +788,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
