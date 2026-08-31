@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard - FranqOS" }] }),
+  head: () => ({ meta: [{ title: "Dashboard | FranqOS" }] }),
   component: () => <Outlet />,
   errorComponent: DashboardError,
 });
