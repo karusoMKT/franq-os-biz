@@ -142,10 +142,35 @@ export function adjustDateToPeriodEnd(dateStr: string, period: PeriodType): stri
   return dt.toISOString().slice(0, 10);
 }
 
-function isInCurrentMonth(dateStr: string | null) {
-  if (!dateStr) return false;
-  return dateStr.slice(0, 7) === currentMonth();
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const start = `${month}-01`;
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const end = `${month}-${String(last).padStart(2, "0")}`;
+  return { start, end };
 }
+
+function monthLabel(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Últimos 24 meses + próximos 2, para navegação. */
+function buildMonthOptions() {
+  const now = new Date();
+  const out: string[] = [];
+  for (let i = 2; i >= -23; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    out.push(d.toISOString().slice(0, 7));
+  }
+  return out.reverse();
+}
+
 
 function FinancePage() {
   const { profile, loading } = useProfile();
