@@ -1036,24 +1036,36 @@ function AnswerRow({
       );
     }
 
+    const offList = ans.off ?? [];
+    const schedules = unit?.measurement_schedules ?? [];
+
+    const emit = (temps: (string | number)[], off: boolean[]) => onAnswer({ temps, off });
+
     return (
       <div className="flex flex-col gap-2">
         <Label className="text-sm">{item.question}</Label>
-        <div className="grid grid-cols-3 gap-2">
+        {schedules.length > 0 && (
+          <div className="text-[10px] text-muted-foreground">
+            Conferências do dia: {schedules.join(" · ")}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
           {Array.from({ length: n }).map((_, i) => {
+            const isOff = offList[i] === true;
             const raw = ans.temps[i];
             const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
-            const unsafe = Number.isFinite(num) && num > -18;
+            const unsafe = !isOff && Number.isFinite(num) && num > -18;
             return (
-              <div key={i} className="flex flex-col gap-1">
+              <div key={i} className="flex flex-col gap-1 rounded border p-2">
                 <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
                 <Input
+                  key={`${i}-${isOff ? "off" : "on"}`}
                   type="text"
                   inputMode="text"
                   autoComplete="off"
-                  placeholder="°C (ex: -20)"
-                  disabled={locked}
-                  defaultValue={raw ?? ""}
+                  placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
+                  disabled={locked || isOff}
+                  defaultValue={isOff ? "" : (raw ?? "")}
                   className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
                   onChange={(e) => {
                     // Permite dígitos, um sinal de menos no início e um separador decimal (. ou ,)
@@ -1071,16 +1083,32 @@ function AnswerRow({
                     const temps = Array.from({ length: n }, (_, j) =>
                       j === i ? value : (ans.temps[j] ?? ""),
                     );
-                    onAnswer({ temps });
+                    emit(temps, Array.from({ length: n }, (_, j) => offList[j] === true));
                   }}
                 />
+                <label className="flex items-center gap-1.5 text-[11px]">
+                  <Checkbox
+                    checked={isOff}
+                    disabled={locked}
+                    onCheckedChange={(v) => {
+                      const nextOff = Array.from({ length: n }, (_, j) =>
+                        j === i ? !!v : offList[j] === true,
+                      );
+                      const temps = Array.from({ length: n }, (_, j) =>
+                        j === i && !!v ? null : (ans.temps[j] ?? ""),
+                      ) as (string | number)[];
+                      emit(temps, nextOff);
+                    }}
+                  />
+                  <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
+                </label>
                 {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
               </div>
             );
           })}
         </div>
         <span className="text-[10px] text-muted-foreground">
-          Temperatura ideal: -18°C ou menor. Valores negativos são aceitos.
+          Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
         </span>
       </div>
     );
@@ -1742,13 +1770,18 @@ function renderAnswer(item: ChecklistItem, v: AnswerValue | undefined, detail: H
       return (
         <ul className="space-y-0.5">
           {ans.temps.map((t, i) => {
+            const isOff = (ans.off ?? [])[i] === true;
             const num = Number(t);
-            const unsafe = Number.isFinite(num) && num > -18;
+            const unsafe = !isOff && Number.isFinite(num) && num > -18;
             return (
               <li key={i} className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Freezer {i + 1}</span>
-                <span className={unsafe ? "text-destructive font-medium" : ""}>
-                  {t === "" || t === null || t === undefined ? "—" : `${Number(t).toFixed(1)}°C`}
+                <span className={unsafe ? "text-destructive font-medium" : isOff ? "text-muted-foreground" : ""}>
+                  {isOff
+                    ? "Desligado"
+                    : t === "" || t === null || t === undefined
+                      ? "—"
+                      : `${Number(t).toFixed(1)}°C`}
                   {unsafe && " ⚠"}
                 </span>
               </li>
