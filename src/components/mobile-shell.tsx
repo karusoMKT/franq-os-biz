@@ -5,6 +5,7 @@ import { FranqosLogo } from "./franqos-logo";
 import { BottomNav } from "./bottom-nav";
 import { UnitSwitcher } from "./unit-switcher";
 import { NotificationsBell } from "./notifications-bell";
+import { TrialBanner } from "./trial-banner";
 import type { Profile } from "@/hooks/use-profile";
 
 export function MobileShell({
@@ -24,6 +25,7 @@ export function MobileShell({
   return (
     <div className="min-h-screen bg-[oklch(0.98_0.01_240)] pb-24">
       <header className="bg-white border-b sticky top-0 z-30">
+        <TrialBanner />
         <div className="mx-auto max-w-md flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <FranqosLogo className="h-9 w-9 rounded-md" />
