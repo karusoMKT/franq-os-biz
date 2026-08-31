@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { UnitContextProvider } from "@/hooks/use-unit-context";
+import { PwaInstallModal } from "@/components/pwa-install-modal";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
