@@ -796,12 +796,20 @@ function DailyChecklistsPage() {
 function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => void }) {
   const [pdv, setPdv] = useState<string>(String(unit.pdv_count ?? ""));
   const [freezer, setFreezer] = useState<string>(String(unit.freezer_count ?? ""));
+  const [schedules, setSchedules] = useState<string[]>(unit.measurement_schedules ?? []);
 
   const save = useMutation({
     mutationFn: async () => {
       const pdvN = Math.max(0, Math.min(50, parseInt(pdv, 10) || 0));
       const frzN = Math.max(0, Math.min(50, parseInt(freezer, 10) || 0));
-      const { error } = await supabase.from("units").update({ pdv_count: pdvN, freezer_count: frzN }).eq("id", unit.id);
+      const cleanSchedules = schedules
+        .map((s) => s.trim())
+        .filter((s) => /^\d{2}:\d{2}$/.test(s))
+        .sort();
+      const { error } = await supabase
+        .from("units")
+        .update({ pdv_count: pdvN, freezer_count: frzN, measurement_schedules: cleanSchedules })
+        .eq("id", unit.id);
       if (error) throw error;
       return { pdvN, frzN };
     },
@@ -812,10 +820,13 @@ function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => vo
     onError: (e: any) => toast.error(e.message ?? "Erro ao salvar"),
   });
 
-  const dirty = String(unit.pdv_count ?? "") !== pdv || String(unit.freezer_count ?? "") !== freezer;
+  const dirty =
+    String(unit.pdv_count ?? "") !== pdv ||
+    String(unit.freezer_count ?? "") !== freezer ||
+    JSON.stringify(unit.measurement_schedules ?? []) !== JSON.stringify(schedules);
 
   return (
-    <Card className="p-3 space-y-2">
+    <Card className="p-3 space-y-3">
       <div className="text-xs font-medium text-muted-foreground">Configuração da unidade — {unit.name}</div>
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
@@ -827,6 +838,44 @@ function UnitConfigCard({ unit, onSaved }: { unit: UnitConfig; onSaved: () => vo
           <Input type="number" min="0" max="50" value={freezer} onChange={(e) => setFreezer(e.target.value)} />
         </div>
       </div>
+
+      <div className="space-y-2">
+        <Label className="text-[11px]">Horários das conferências de temperatura</Label>
+        {schedules.length === 0 && (
+          <div className="text-[11px] text-muted-foreground">Nenhum horário definido.</div>
+        )}
+        <div className="space-y-2">
+          {schedules.map((time, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={time}
+                onChange={(e) => setSchedules((prev) => prev.map((t, j) => (j === i ? e.target.value : t)))}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setSchedules((prev) => prev.filter((_, j) => j !== i))}
+                aria-label={`Remover horário ${i + 1}`}
+              >
+                <Trash2 size={16} />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full"
+          onClick={() => setSchedules((prev) => [...prev, "09:00"])}
+        >
+          <Plus size={14} className="mr-1.5" />
+          Adicionar horário
+        </Button>
+      </div>
+
       <Button size="sm" className="w-full" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
         <Save size={14} className="mr-1.5" />
         Salvar configuração
