@@ -2,7 +2,7 @@
 // Usa o Gemini (gemini-1.5-flash) para classificar a mensagem e, quando for
 // uma conta a pagar, grava direto na tabela accounts_payable.
 
-export type Intent = "ADD_PAYABLE" | "QUERY_DATA" | "GENERAL_CHAT";
+export type Intent = "ADD_PAYABLE" | "ADD_TRANSACTION" | "QUERY_DATA" | "GENERAL_CHAT";
 
 export type IntentResult = {
   intent: Intent;
@@ -10,6 +10,10 @@ export type IntentResult = {
   due_date?: string | null;
   amount?: number | null;
   description?: string | null;
+  // ADD_TRANSACTION
+  transaction_type?: "income" | "expense" | null;
+  category?: string | null;
+  date?: string | null;
   // QUERY_DATA
   query_type?: string | null;
   date_range?: { start?: string | null; end?: string | null } | null;
