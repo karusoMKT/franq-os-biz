@@ -13,6 +13,7 @@ export const Route = createFileRoute("/_authenticated")({
   },
   component: () => (
     <UnitContextProvider>
+      <TrialGuard />
       <Outlet />
       <PwaInstallModal />
     </UnitContextProvider>
