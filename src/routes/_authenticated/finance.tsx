@@ -160,16 +160,6 @@ function monthLabel(month: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-/** Próximos 2 meses + últimos 24, do mais recente ao mais antigo. */
-function buildMonthOptions() {
-  const now = new Date();
-  const out: string[] = [];
-  for (let i = -2; i <= 23; i++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    out.push(d.toISOString().slice(0, 7));
-  }
-  return out;
-}
 
 
 function FinancePage() {
@@ -337,6 +327,7 @@ function FinancePage() {
       setPendingDeleteTx(null);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
+      queryClient.invalidateQueries({ queryKey: ["available-months"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
@@ -642,6 +633,7 @@ function FinancePage() {
         onSaved={() => {
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
+      queryClient.invalidateQueries({ queryKey: ["available-months"] });
           queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
         }}
       />
@@ -761,8 +753,10 @@ function AccountsPayableSection({
     onSuccess: () => {
       toast.success("Conta paga e lançada nas despesas.");
       queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+      queryClient.invalidateQueries({ queryKey: ["available-months"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transactions-history"] });
+      queryClient.invalidateQueries({ queryKey: ["available-months"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard-finance"] });
       queryClient.invalidateQueries({ queryKey: ["owner-dashboard"] });
     },
