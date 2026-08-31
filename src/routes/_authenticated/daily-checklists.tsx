@@ -1090,16 +1090,16 @@ function FreezerTemperaturesRow({
   const schedules = (unit?.measurement_schedules ?? []).filter(Boolean);
   const saved = current?.schedules ?? {};
 
-  const firstPending = Math.max(0, schedules.findIndex((s) => !saved[s]));
-  const [activeIdx, setActiveIdx] = useState<number>(firstPending === -1 ? 0 : firstPending);
+  const firstPendingIdx = (() => {
+    const idx = schedules.findIndex((s) => !saved[s]);
+    return idx === -1 ? 0 : idx;
+  })();
+
+  const [currentScheduleIndex, setCurrentScheduleIndex] = useState<number>(firstPendingIdx);
   const [justSaved, setJustSaved] = useState(false);
 
-  useEffect(() => {
-    if (schedules.length === 0) return;
-    if (activeIdx >= schedules.length) setActiveIdx(0);
-  }, [activeIdx, schedules.length]);
-
-  const slot = schedules[Math.min(activeIdx, schedules.length - 1)];
+  const safeIdx = schedules.length ? Math.min(currentScheduleIndex, schedules.length - 1) : 0;
+  const slot = schedules[safeIdx];
   const entry = slot ? saved[slot] : null;
   const isEditing = !!entry;
 
@@ -1108,7 +1108,7 @@ function FreezerTemperaturesRow({
   );
   const [off, setOff] = useState<boolean[]>(() => Array.from({ length: n }, (_, i) => entry?.off?.[i] === true));
 
-  // Recarrega os valores ao trocar de horário
+  // Recarrega os valores salvos ao trocar de horário
   useEffect(() => {
     if (!slot) return;
     const e = saved[slot];
@@ -1123,7 +1123,8 @@ function FreezerTemperaturesRow({
       <div className="flex flex-col gap-1.5">
         <Label className="text-sm">{item.question}</Label>
         <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-          Nenhum horário de conferência configurado. Peça ao responsável para configurar os horários na tela de Rotina Diária.
+          Nenhum horário de conferência configurado. Peça ao responsável para configurar os horários na tela de Rotina
+          Diária.
         </div>
       </div>
     );
@@ -1141,7 +1142,13 @@ function FreezerTemperaturesRow({
   }
 
   const complete = temps.every((t, i) => off[i] === true || (t !== "" && t !== null && t !== undefined));
-  const hasNext = activeIdx < schedules.length - 1;
+  const hasNext = safeIdx < schedules.length - 1;
+  const hasPrev = safeIdx > 0;
+
+  const goTo = (idx: number) => {
+    setCurrentScheduleIndex(Math.max(0, Math.min(schedules.length - 1, idx)));
+    setJustSaved(false);
+  };
 
   const save = () => {
     const nextSchedules: Record<string, FreezerScheduleEntry> = {
@@ -1166,11 +1173,36 @@ function FreezerTemperaturesRow({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-1">
         <Label className="text-sm">{item.question}</Label>
-        <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-          {slot}
+        <span className="text-[11px] text-muted-foreground">
+          Conferência {safeIdx + 1} de {schedules.length}
         </span>
+      </div>
+
+      {/* Etapas: uma conferência por vez */}
+      <div className="flex flex-wrap gap-1.5">
+        {schedules.map((s, i) => {
+          const done = !!saved[s];
+          const active = i === safeIdx;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => goTo(i)}
+              className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : done
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-muted text-muted-foreground border-transparent"
+              }`}
+            >
+              {done && !active ? "✓ " : ""}
+              {s}
+            </button>
+          );
+        })}
       </div>
 
       {justSaved ? (
@@ -1179,20 +1211,11 @@ function FreezerTemperaturesRow({
             <CheckCircle2 size={16} /> Conferência das {slot} salva com sucesso.
           </div>
           {hasNext ? (
-            <Button
-              type="button"
-              className="w-full"
-              onClick={() => {
-                setActiveIdx((i) => i + 1);
-                setJustSaved(false);
-              }}
-            >
+            <Button type="button" className="w-full" onClick={() => goTo(safeIdx + 1)}>
               Ir para a próxima conferência
             </Button>
           ) : (
-            <div className="text-xs text-muted-foreground">
-              Todas as conferências do dia foram registradas.
-            </div>
+            <div className="text-xs text-muted-foreground">Todas as conferências do dia foram registradas.</div>
           )}
           <Button type="button" variant="ghost" size="sm" onClick={() => setJustSaved(false)}>
             Editar esta conferência
@@ -1200,15 +1223,24 @@ function FreezerTemperaturesRow({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border bg-muted/30 p-2 flex items-center justify-between">
+            <span className="text-xs font-medium">Conferência das {slot}</span>
+            {isEditing && (
+              <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                já registrada
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
             {Array.from({ length: n }).map((_, i) => {
               const isOff = off[i] === true;
               const raw = temps[i];
               const num = raw === "" || raw === undefined || raw === null ? NaN : Number(raw);
               const unsafe = !isOff && Number.isFinite(num) && num > -18;
               return (
-                <div key={i} className="flex flex-col gap-1 rounded border p-2">
-                  <span className="text-[10px] text-muted-foreground">Freezer {i + 1}</span>
+                <div key={i} className="flex items-center gap-2 rounded border p-2">
+                  <span className="text-xs w-20 shrink-0 text-muted-foreground">Freezer {i + 1}</span>
                   <Input
                     key={`${slot}-${i}-${isOff ? "off" : "on"}`}
                     type="text"
@@ -1217,7 +1249,7 @@ function FreezerTemperaturesRow({
                     placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
                     disabled={locked || isOff}
                     defaultValue={isOff ? "" : (raw ?? "")}
-                    className={unsafe ? "border-destructive focus-visible:ring-destructive" : ""}
+                    className={`h-9 flex-1 ${unsafe ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     onChange={(e) => {
                       const cleaned = e.target.value
                         .replace(/[^0-9.,\-]/g, "")
@@ -1233,7 +1265,7 @@ function FreezerTemperaturesRow({
                       setTemps((prev) => prev.map((t, j) => (j === i ? value : t)));
                     }}
                   />
-                  <label className="flex items-center gap-1.5 text-[11px]">
+                  <label className="flex items-center gap-1.5 text-[11px] shrink-0">
                     <Checkbox
                       checked={isOff}
                       disabled={locked}
@@ -1244,7 +1276,7 @@ function FreezerTemperaturesRow({
                     />
                     <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
                   </label>
-                  {unsafe && <span className="text-[10px] text-destructive font-medium">⚠ Acima de -18°C</span>}
+                  {unsafe && <span className="text-[10px] text-destructive font-medium shrink-0">⚠</span>}
                 </div>
               );
             })}
@@ -1254,9 +1286,16 @@ function FreezerTemperaturesRow({
             Temperatura ideal: -18°C ou menor. Marque "Desligado" quando o equipamento estiver fora de operação.
           </span>
 
-          <Button type="button" className="w-full" disabled={locked || !complete} onClick={save}>
-            {isEditing ? "Salvar Edição" : "Concluir conferência"}
-          </Button>
+          <div className="flex gap-2">
+            {hasPrev && (
+              <Button type="button" variant="outline" className="shrink-0" onClick={() => goTo(safeIdx - 1)}>
+                <ArrowLeft size={16} />
+              </Button>
+            )}
+            <Button type="button" className="flex-1" disabled={locked || !complete} onClick={save}>
+              {isEditing ? "Atualizar" : "Concluir Conferência"}
+            </Button>
+          </div>
         </>
       )}
     </div>
