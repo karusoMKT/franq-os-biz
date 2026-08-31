@@ -27,6 +27,21 @@ function extractMetaMessage(payload: unknown): { message: string; from?: string 
   return null;
 }
 
+async function sendWhatsapp(to: string | undefined, body: string) {
+  const token = process.env["WHATSAPP_TOKEN"];
+  const phoneId = process.env["WHATSAPP_PHONE_ID"];
+  if (!to || !token || !phoneId) return;
+  try {
+    await fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body } }),
+    });
+  } catch (error) {
+    console.error("[whatsapp-send]", error);
+  }
+}
+
 export const Route = createFileRoute("/api/public/whatsapp-webhook")({
   server: {
     handlers: {
@@ -79,6 +94,7 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
             company_id: parsed.data.company_id,
             unit_id: parsed.data.unit_id,
           });
+          await sendWhatsapp(parsed.data.from, result.reply);
           return Response.json({
             intent: result.intent,
             reply: result.reply,
