@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   ClipboardCheck,
   CheckCircle2,
-  Lock,
   ArrowLeft,
   AlertTriangle,
   Settings2,
@@ -734,7 +733,7 @@ function DailyChecklistsPage() {
                           else startMutation.mutate(c);
                         }}
                       >
-                        {completed ? "Ver" : exec ? "Continuar" : "Iniciar"}
+                        {completed ? "Editar" : exec ? "Continuar" : "Iniciar"}
                       </Button>
                     </Card>
                   </li>
