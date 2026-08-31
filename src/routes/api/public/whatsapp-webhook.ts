@@ -33,7 +33,8 @@ export const Route = createFileRoute("/api/public/whatsapp-webhook")({
       // Verificação do webhook (Meta Cloud API)
       GET: async ({ request }) => {
         const url = new URL(request.url);
-        const token = process.env["WHATSAPP_VERIFY_TOKEN"];
+        const token =
+          process.env["WEBHOOK_VERIFY_TOKEN"] ?? process.env["WHATSAPP_VERIFY_TOKEN"];
         if (
           url.searchParams.get("hub.mode") === "subscribe" &&
           token &&
