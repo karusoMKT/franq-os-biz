@@ -1103,20 +1103,43 @@ function FreezerTemperaturesRow({
   const entry = slot ? saved[slot] : null;
   const isEditing = !!entry;
 
-  const [temps, setTemps] = useState<(string | number)[]>(() =>
-    Array.from({ length: n }, (_, i) => entry?.temps?.[i] ?? ""),
+  // Estado local indexado por horário: mantém o que foi digitado mesmo ao trocar de aba
+  type Draft = { temps: (string | number)[]; off: boolean[] };
+  const makeDraft = useCallback(
+    (e?: FreezerScheduleEntry | null): Draft => ({
+      temps: Array.from({ length: n }, (_, i) => (e?.temps?.[i] ?? "") as string | number),
+      off: Array.from({ length: n }, (_, i) => e?.off?.[i] === true),
+    }),
+    [n],
   );
-  const [off, setOff] = useState<boolean[]>(() => Array.from({ length: n }, (_, i) => entry?.off?.[i] === true));
 
-  // Recarrega os valores salvos ao trocar de horário
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const dirtyRef = useRef<Set<string>>(new Set());
+  const savedSig = JSON.stringify(saved ?? {});
+  const schedulesSig = schedules.join("|");
+
+  // Pre-fill: sempre que os dados salvos mudarem, recarrega os horários sem edições pendentes
   useEffect(() => {
-    if (!slot) return;
-    const e = saved[slot];
-    setTemps(Array.from({ length: n }, (_, i) => e?.temps?.[i] ?? ""));
-    setOff(Array.from({ length: n }, (_, i) => e?.off?.[i] === true));
-    setJustSaved(false);
+    setDrafts((prev) => {
+      const next: Record<string, Draft> = { ...prev };
+      schedules.forEach((s) => {
+        if (!prev[s] || !dirtyRef.current.has(s)) next[s] = makeDraft(saved[s]);
+      });
+      return next;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slot, n]);
+  }, [savedSig, schedulesSig, n]);
+
+  const draft = (slot ? drafts[slot] : null) ?? makeDraft(slot ? saved[slot] : null);
+  const temps = draft.temps;
+  const off = draft.off;
+
+  const updateDraft = (patch: Partial<Draft>) => {
+    if (!slot) return;
+    dirtyRef.current.add(slot);
+    setDrafts((prev) => ({ ...prev, [slot]: { ...(prev[slot] ?? draft), ...patch } }));
+  };
+
 
   if (schedules.length === 0) {
     return (
