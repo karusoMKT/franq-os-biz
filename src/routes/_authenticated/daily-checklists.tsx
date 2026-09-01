@@ -1275,13 +1275,12 @@ function FreezerTemperaturesRow({
                 <div key={i} className="flex items-center gap-2 rounded border p-2">
                   <span className="text-xs w-20 shrink-0 text-muted-foreground">Freezer {i + 1}</span>
                   <Input
-                    key={`${slot}-${i}-${isOff ? "off" : "on"}`}
                     type="text"
                     inputMode="text"
                     autoComplete="off"
                     placeholder={isOff ? "Desligado" : "°C (ex: -20)"}
                     disabled={locked || isOff}
-                    defaultValue={isOff ? "" : (raw ?? "")}
+                    value={isOff ? "" : raw === null || raw === undefined ? "" : String(raw)}
                     className={`h-9 flex-1 ${unsafe ? "border-destructive focus-visible:ring-destructive" : ""}`}
                     onChange={(e) => {
                       const cleaned = e.target.value
@@ -1289,13 +1288,13 @@ function FreezerTemperaturesRow({
                         .replace(/(?!^)-/g, "")
                         .replace(/(,.*),/g, "$1")
                         .replace(/(\..*)\./g, "$1");
-                      if (e.target.value !== cleaned) e.target.value = cleaned;
+                      updateDraft({ temps: temps.map((t, j) => (j === i ? cleaned : t)) });
                     }}
                     onBlur={(e) => {
                       const normalized = e.target.value.replace(",", ".").trim();
                       const parsed = normalized === "" || normalized === "-" ? "" : Number(normalized);
                       const value = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : "";
-                      setTemps((prev) => prev.map((t, j) => (j === i ? value : t)));
+                      updateDraft({ temps: temps.map((t, j) => (j === i ? value : t)) });
                     }}
                   />
                   <label className="flex items-center gap-1.5 text-[11px] shrink-0">
@@ -1303,10 +1302,13 @@ function FreezerTemperaturesRow({
                       checked={isOff}
                       disabled={locked}
                       onCheckedChange={(v) => {
-                        setOff((prev) => prev.map((o, j) => (j === i ? !!v : o)));
-                        if (v) setTemps((prev) => prev.map((t, j) => (j === i ? "" : t)));
+                        updateDraft({
+                          off: off.map((o, j) => (j === i ? !!v : o)),
+                          temps: v ? temps.map((t, j) => (j === i ? "" : t)) : temps,
+                        });
                       }}
                     />
+
                     <span className={isOff ? "font-medium text-muted-foreground" : ""}>Desligado</span>
                   </label>
                   {unsafe && <span className="text-[10px] text-destructive font-medium shrink-0">⚠</span>}
