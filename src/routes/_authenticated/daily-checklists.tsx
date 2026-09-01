@@ -1174,14 +1174,23 @@ function FreezerTemperaturesRow({
   };
 
   const save = () => {
+    const normalize = (t: string | number) => {
+      if (typeof t === "number") return t;
+      const s = String(t ?? "").replace(",", ".").trim();
+      if (s === "" || s === "-") return "";
+      const num = Number(s);
+      return Number.isFinite(num) ? num : "";
+    };
+    // Upsert por horário: mescla com os registros existentes, sem apagar os demais
     const nextSchedules: Record<string, FreezerScheduleEntry> = {
       ...saved,
       [slot]: {
-        temps: temps.map((t, i) => (off[i] ? (null as unknown as string) : t)),
+        temps: temps.map((t, i) => (off[i] ? (null as unknown as string) : normalize(t))),
         off: [...off],
         saved_at: new Date().toISOString(),
       },
     };
+    dirtyRef.current.delete(slot);
     onAnswer(
       {
         temps: nextSchedules[slot].temps,
@@ -1193,6 +1202,7 @@ function FreezerTemperaturesRow({
     setJustSaved(true);
     toast.success(isEditing ? "Conferência atualizada" : `Conferência das ${slot} registrada`);
   };
+
 
   return (
     <div className="flex flex-col gap-3">
