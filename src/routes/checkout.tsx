@@ -2,6 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check, Copy, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -83,21 +86,33 @@ function maskPhone(value: string): string {
     .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
 }
 
-function validateCheckout(form: { name: string; email: string; cpfCnpj: string; phone: string }) {
-  const errors: string[] = [];
-  const cleanCpfCnpj = onlyNumbers(form.cpfCnpj);
-  const cleanPhone = onlyNumbers(form.phone);
+const checkoutSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome completo."),
+  email: z.string().trim().email("E-mail inválido."),
+  cpfCnpj: z
+    .string()
+    .trim()
+    .refine(
+      (val) => {
+        const digits = onlyNumbers(val);
+        return digits.length === 11 || digits.length === 14;
+      },
+      { message: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." },
+    ),
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        const digits = onlyNumbers(val);
+        return digits.length >= 10 && digits.length <= 11;
+      },
+      { message: "Telefone/WhatsApp inválido." },
+    ),
+});
 
-  if (form.name.trim().length < 2) errors.push("Informe o nome completo.");
-  if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.push("E-mail inválido.");
-  if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
-    errors.push("CPF deve ter 11 dígitos ou CNPJ 14 dígitos.");
-  }
-  if (form.phone.trim() && (cleanPhone.length < 10 || cleanPhone.length > 11)) {
-    errors.push("Telefone/WhatsApp inválido.");
-  }
-  return errors;
-}
+type CheckoutForm = z.infer<typeof checkoutSchema>;
 
 function CheckoutPage() {
   const { isTrialing, daysLeft, hasAccess, isActive, profile } = useSubscription();
@@ -105,28 +120,25 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
   const [result, setResult] = useState<SubscriptionResult | null>(null);
-  const [form, setForm] = useState({ name: "", cpfCnpj: "", email: "", phone: "" });
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    formState: { errors },
+  } = useForm<CheckoutForm>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: { name: "", email: "", cpfCnpj: "", phone: "" },
+  });
 
   useEffect(() => {
     if (!profile) return;
-    setForm((prev) => ({
-      ...prev,
-      name: prev.name || (profile.name ?? ""),
-      email: prev.email || (profile.email ?? ""),
-    }));
-  }, [profile]);
+    if (profile.name) setValue("name", profile.name);
+    if (profile.email) setValue("email", profile.email);
+  }, [profile, setValue]);
 
-  const updateForm = (field: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubscribe = async () => {
-    const errors = validateCheckout(form);
-    if (errors.length > 0) {
-      toast.error(errors[0]);
-      return;
-    }
-
+  const onSubmit = async (form: CheckoutForm) => {
     setLoading(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -250,7 +262,7 @@ function CheckoutPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-5 border-t pt-5">
+              <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
@@ -280,55 +292,79 @@ function CheckoutPage() {
                     <Input
                       id="name"
                       placeholder="Digite seu nome completo"
-                      value={form.name}
-                      onChange={(e) => updateForm("name", e.target.value)}
+                      autoComplete="name"
+                      {...register("name")}
                     />
+                    {errors.name && (
+                      <p className="text-xs text-destructive">{errors.name.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="email">E-mail</Label>
                     <Input
                       id="email"
-                      type="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
                       placeholder="seu@email.com"
-                      value={form.email}
-                      onChange={(e) => updateForm("email", e.target.value)}
+                      {...register("email")}
                     />
+                    {errors.email && (
+                      <p className="text-xs text-destructive">{errors.email.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="cpfCnpj">CPF / CNPJ</Label>
-                    <Input
-                      id="cpfCnpj"
-                      inputMode="numeric"
-                      placeholder="000.000.000-00"
-                      value={form.cpfCnpj}
-                      onChange={(e) => updateForm("cpfCnpj", maskCpfCnpj(e.target.value))}
+                    <Controller
+                      name="cpfCnpj"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          id="cpfCnpj"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          placeholder="000.000.000-00"
+                          value={field.value}
+                          onChange={(e) => field.onChange(maskCpfCnpj(e.target.value))}
+                        />
+                      )}
                     />
+                    {errors.cpfCnpj && (
+                      <p className="text-xs text-destructive">{errors.cpfCnpj.message}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="phone">Telefone WhatsApp</Label>
                     <div className="relative">
                       <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        inputMode="tel"
-                        placeholder="(00) 00000-0000"
-                        className="pl-9"
-                        value={form.phone}
-                        onChange={(e) => updateForm("phone", maskPhone(e.target.value))}
+                      <Controller
+                        name="phone"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            id="phone"
+                            type="text"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            placeholder="(00) 00000-0000"
+                            className="pl-9"
+                            value={field.value}
+                            onChange={(e) => field.onChange(maskPhone(e.target.value))}
+                          />
+                        )}
                       />
                     </div>
+                    {errors.phone && (
+                      <p className="text-xs text-destructive">{errors.phone.message}</p>
+                    )}
                   </div>
                 </div>
 
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleSubscribe}
-                  disabled={loading}
-                >
+                <Button className="w-full" size="lg" type="submit" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -338,7 +374,7 @@ function CheckoutPage() {
                     <>Pagar {PLAN_PRICE_LABEL}</>
                   )}
                 </Button>
-              </div>
+              </form>
             )}
 
             {hasAccess && (
