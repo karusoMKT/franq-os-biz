@@ -64,135 +64,148 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // 1. Autenticação do chamador
-        const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-        if (!token) return json({ error: "Não autenticado" }, 401);
-
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-        const user = userData?.user;
-        if (userError || !user) return json({ error: "Sessão inválida" }, 401);
-
-        // 2. Entrada + sanitização obrigatória
-        let body: any;
         try {
-          body = await request.json();
-        } catch {
-          return json({ error: "Corpo da requisição inválido" }, 400);
-        }
+          // 1. Autenticação do chamador
+          const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+          if (!token) return json({ error: "Não autenticado" }, 401);
 
-        const name = String(body?.name ?? "").trim();
-        const email = String(body?.email ?? "").trim();
-        const paymentMethod = body?.billingType ?? body?.paymentMethod;
-        const cleanCpfCnpj = onlyNumbers(body?.cpfCnpj);
-        const cleanPhone = onlyNumbers(body?.phone ?? body?.mobilePhone);
-        const cleanPostalCode = onlyNumbers(body?.postalCode);
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+          const user = userData?.user;
+          if (userError || !user) return json({ error: "Sessão inválida" }, 401);
 
-        if (name.length < 2) return json({ error: "Informe o nome completo." }, 400);
-        if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "E-mail inválido." }, 400);
-        if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
-          return json({ error: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." }, 400);
-        }
-        if (cleanPhone && (cleanPhone.length < 10 || cleanPhone.length > 11)) {
-          return json({ error: "Telefone inválido. Use DDD + número." }, 400);
-        }
-        if (cleanPostalCode && cleanPostalCode.length !== 8) {
-          return json({ error: "CEP deve ter 8 dígitos." }, 400);
-        }
-        if (paymentMethod !== "PIX" && paymentMethod !== "CREDIT_CARD") {
-          return json({ error: "Forma de pagamento inválida." }, 400);
-        }
+          // 2. Entrada + sanitização obrigatória
+          let body: any;
+          try {
+            body = await request.json();
+          } catch {
+            return json({ error: "Corpo da requisição inválido" }, 400);
+          }
 
-        // 3a. Criar (ou reaproveitar) o cliente no Asaas
-        const { data: profile } = await supabaseAdmin
-          .from("profiles")
-          .select("id, asaas_customer_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+          const name = String(body?.name ?? "").trim();
+          const email = String(body?.email ?? "").trim();
+          const paymentMethod = body?.billingType ?? body?.paymentMethod;
+          const cleanCpfCnpj = onlyNumbers(body?.cpfCnpj);
+          const cleanPhone = onlyNumbers(body?.phone ?? body?.mobilePhone);
+          const cleanPostalCode = onlyNumbers(body?.postalCode);
 
-        let customerId = profile?.asaas_customer_id ?? null;
+          if (name.length < 2) return json({ error: "Informe o nome completo." }, 400);
+          if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "E-mail inválido." }, 400);
+          if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
+            return json({ error: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." }, 400);
+          }
+          if (cleanPhone && (cleanPhone.length < 10 || cleanPhone.length > 11)) {
+            return json({ error: "Telefone inválido. Use DDD + número." }, 400);
+          }
+          if (cleanPostalCode && cleanPostalCode.length !== 8) {
+            return json({ error: "CEP deve ter 8 dígitos." }, 400);
+          }
+          if (paymentMethod !== "PIX" && paymentMethod !== "CREDIT_CARD") {
+            return json({ error: "Forma de pagamento inválida." }, 400);
+          }
 
-        if (!customerId) {
-          const customer = await asaas<{ id: string }>("/customers", {
+          // 3a. Criar (ou reaproveitar) o cliente no Asaas
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("id, asaas_customer_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          let customerId = profile?.asaas_customer_id ?? null;
+
+          if (!customerId) {
+            const customer = await asaas<{ id: string }>("/customers", {
+              method: "POST",
+              body: {
+                name,
+                email,
+                cpfCnpj: cleanCpfCnpj,
+                ...(cleanPhone ? { mobilePhone: cleanPhone } : {}),
+                ...(cleanPostalCode ? { postalCode: cleanPostalCode } : {}),
+              },
+            });
+            if (!customer.ok || !customer.data?.id) {
+              return json({ error: customer.error ?? "Falha ao criar cliente no Asaas" }, 400);
+            }
+            customerId = customer.data.id;
+          }
+
+          // 3b. Criar assinatura recorrente
+          const subscription = await asaas<{ id: string }>("/subscriptions", {
             method: "POST",
             body: {
-              name,
-              email,
-              cpfCnpj: cleanCpfCnpj,
-              ...(cleanPhone ? { mobilePhone: cleanPhone } : {}),
-              ...(cleanPostalCode ? { postalCode: cleanPostalCode } : {}),
+              customer: customerId,
+              billingType: paymentMethod,
+              value: PLAN_VALUE,
+              nextDueDate: todayYYYYMMDD(),
+              cycle: "MONTHLY",
+              description: "Assinatura FranqOS - Gestão SaaS",
             },
           });
-          if (!customer.ok || !customer.data?.id) {
-            return json({ error: customer.error ?? "Falha ao criar cliente no Asaas" }, 400);
+          if (!subscription.ok || !subscription.data?.id) {
+            return json({ error: subscription.error ?? "Falha ao criar assinatura no Asaas" }, 400);
           }
-          customerId = customer.data.id;
-        }
+          const subscriptionId = subscription.data.id;
 
-        // 3b. Criar assinatura recorrente
-        const subscription = await asaas<{ id: string }>("/subscriptions", {
-          method: "POST",
-          body: {
-            customer: customerId,
-            billingType: paymentMethod,
-            value: PLAN_VALUE,
-            nextDueDate: todayYYYYMMDD(),
-            cycle: "MONTHLY",
-            description: "Assinatura FranqOS - Gestão SaaS",
-          },
-        });
-        if (!subscription.ok || !subscription.data?.id) {
-          return json({ error: subscription.error ?? "Falha ao criar assinatura no Asaas" }, 400);
-        }
-        const subscriptionId = subscription.data.id;
+          // 3d. Persistir IDs no perfil
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              asaas_customer_id: customerId,
+              asaas_subscription_id: subscriptionId,
+            })
+            .eq("user_id", user.id);
 
-        // 3d. Persistir IDs no perfil
-        await supabaseAdmin
-          .from("profiles")
-          .update({
-            asaas_customer_id: customerId,
-            asaas_subscription_id: subscriptionId,
-          })
-          .eq("user_id", user.id);
-
-        // Primeira cobrança gerada pela assinatura
-        const payments = await asaas<{ data?: Array<{ id: string; invoiceUrl?: string }> }>(
-          `/subscriptions/${subscriptionId}/payments`,
-        );
-        const payment = payments.data?.data?.[0] ?? null;
-
-        // 3c. Pix: QR Code + copia e cola
-        let qrCodeImage: string | null = null;
-        let payloadPix: string | null = null;
-
-        if (paymentMethod === "PIX" && payment?.id) {
-          const qr = await asaas<{ encodedImage?: string; payload?: string }>(
-            `/payments/${payment.id}/pixQrCode`,
+          // Primeira cobrança gerada pela assinatura
+          const payments = await asaas<{ data?: Array<{ id: string; invoiceUrl?: string }> }>(
+            `/subscriptions/${subscriptionId}/payments`,
           );
-          if (qr.ok && qr.data?.payload) {
-            payloadPix = qr.data.payload;
-            const image = qr.data.encodedImage ?? "";
-            qrCodeImage = image.startsWith("data:image")
-              ? image
-              : `data:image/png;base64,${image}`;
-          } else {
-            console.error("[asaas] pixQrCode", qr.error);
-          }
-        }
+          const payment = payments.data?.data?.[0] ?? null;
 
-        return json({
-          subscriptionId,
-          customerId,
-          paymentId: payment?.id ?? null,
-          invoiceUrl: payment?.invoiceUrl ?? null,
-          qrCodeImage,
-          payloadPix,
-          // compatibilidade com o formato consumido hoje pelo checkout
-          pix:
-            payloadPix && qrCodeImage
-              ? { payload: payloadPix, encodedImage: qrCodeImage }
-              : null,
-        });
+          // 3c. Pix: QR Code + copia e cola
+          let qrCodeImage: string | null = null;
+          let payloadPix: string | null = null;
+
+          if (paymentMethod === "PIX" && payment?.id) {
+            const qr = await asaas<{ encodedImage?: string; payload?: string }>(
+              `/payments/${payment.id}/pixQrCode`,
+            );
+            if (qr.ok && qr.data?.payload) {
+              payloadPix = qr.data.payload;
+              const image = qr.data.encodedImage ?? "";
+              qrCodeImage = image.startsWith("data:image")
+                ? image
+                : `data:image/png;base64,${image}`;
+            } else {
+              console.error("[asaas] pixQrCode", qr.error);
+            }
+          }
+
+          return json({
+            subscriptionId,
+            customerId,
+            paymentId: payment?.id ?? null,
+            invoiceUrl: payment?.invoiceUrl ?? null,
+            qrCodeImage,
+            payloadPix,
+            // compatibilidade com o formato consumido hoje pelo checkout
+            pix:
+              payloadPix && qrCodeImage
+                ? { payload: payloadPix, encodedImage: qrCodeImage }
+                : null,
+          });
+        } catch (error) {
+          console.error("[asaas-create-subscription] erro inesperado:", error);
+          return new Response(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : "Erro interno do servidor",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
       },
     },
   },
