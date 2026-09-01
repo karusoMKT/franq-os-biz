@@ -162,6 +162,16 @@ function CheckoutPage() {
           billingType,
         }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const errorText = await res.text();
+        console.error("Servidor retornou HTML/Texto:", errorText);
+        throw new Error(
+          `O servidor retornou um erro HTTP ${res.status}. Verifique se a rota da API está ativa na Vercel.`,
+        );
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Falha ao gerar assinatura");
 
