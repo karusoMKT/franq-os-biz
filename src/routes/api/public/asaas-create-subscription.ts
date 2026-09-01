@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 const PLAN_VALUE = 97.0;
-const DEFAULT_BASE = "https://api.asaas.com/v3";
+const BASE_URL = "https://www.asaas.com/api/v3";
 
-/** Remove tudo que não for dígito */
+/** Remove tudo que não for dígito (CPF/CNPJ, telefone, CEP devem conter apenas números) */
 const onlyNumbers = (str: unknown): string => (str ? String(str).replace(/\D/g, "") : "");
 
 function json(data: unknown, status = 200) {
@@ -14,8 +14,9 @@ function json(data: unknown, status = 200) {
 }
 
 function baseUrl(): string {
-  return (process.env["ASAAS_API_URL"]?.trim() || DEFAULT_BASE).replace(/\/$/, "");
+  return BASE_URL;
 }
+
 
 async function asaas<T = any>(
   path: string,

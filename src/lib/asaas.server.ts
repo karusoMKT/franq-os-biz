@@ -1,8 +1,9 @@
-const DEFAULT_BASE = "https://api.asaas.com/v3";
+const BASE_URL = "https://www.asaas.com/api/v3";
 
 export function asaasBaseUrl(): string {
-  return (process.env["ASAAS_API_URL"]?.trim() ?? DEFAULT_BASE).replace(/\/$/, "");
+  return BASE_URL;
 }
+
 
 export async function asaasFetch<T = any>(
   path: string,
