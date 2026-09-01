@@ -16,22 +16,22 @@ export interface SubscriptionState {
 export function computeSubscription(profile: Profile | null): Omit<SubscriptionState, "loading" | "profile"> {
   const status = profile?.subscription_status ?? "trialing";
   const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
-  const now = Date.now();
   const isActive = status === "active";
-  const trialValid = !!trialEndsAt && trialEndsAt.getTime() > now;
-  const daysLeft = trialEndsAt
-    ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now) / 86_400_000))
-    : 0;
+
+  // Dias restantes calculados dinamicamente a partir da data fixa no banco
+  const diffTime = trialEndsAt ? trialEndsAt.getTime() - Date.now() : 0;
+  const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
   return {
     status,
     isActive,
-    isTrialing: !isActive && trialValid,
+    isTrialing: !isActive && daysRemaining > 0,
     trialEndsAt,
-    daysLeft,
-    hasAccess: isActive || trialValid,
+    daysLeft: daysRemaining,
+    hasAccess: isActive || daysRemaining > 0,
   };
 }
+
 
 export function useSubscription(): SubscriptionState {
   const { profile, loading } = useProfile();
