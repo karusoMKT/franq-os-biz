@@ -244,13 +244,29 @@ function CheckoutPage() {
                     <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
                     <img
                       src={qrImage.startsWith("data:image") ? qrImage : `data:image/png;base64,${qrImage}`}
-                      alt="QR Code Pix da assinatura FranqOS"
+                      alt="QR Code Pix"
                       className="mx-auto h-64 w-64 rounded-xl border bg-white p-3 object-contain"
                     />
-                    <Button variant="outline" className="w-full" onClick={copyPix}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copiar Chave Pix
-                    </Button>
+                    <div className="space-y-2 text-left">
+                      <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="pix-payload"
+                          readOnly
+                          value={result?.payloadPix ?? result?.pix?.payload ?? ""}
+                          className="text-xs"
+                        />
+                        <Button type="button" variant="outline" onClick={copyPix}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copiar Código Pix
+                        </Button>
+                      </div>
+                      {result?.pix?.expirationDate && (
+                        <p className="text-xs text-muted-foreground">
+                          Válido até: {result.pix.expirationDate}
+                        </p>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
                       segundos.
