@@ -262,18 +262,57 @@ function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <ul className="space-y-2">
-              {BENEFITS.map((b) => (
-                <li key={b} className="flex items-start gap-2 text-sm">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
+            {pixData ? (
+              <div className="space-y-4 border-t pt-5 text-center">
+                <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
 
-            {result ? (
-              <div className="space-y-5 border-t pt-5">
-                {billingType === "PIX" && qrImage ? (
+                <img
+                  src={pixQrSrc ?? undefined}
+                  alt="QR Code Pix"
+                  className="w-56 h-56 mx-auto my-4 rounded-lg border p-2 bg-white object-contain"
+                />
+
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pix-payload"
+                      readOnly
+                      value={pixData.payload}
+                      className="text-xs font-mono"
+                      onFocus={(e) => e.currentTarget.select()}
+                    />
+                    <Button type="button" variant="outline" onClick={copyPix}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copiar Código Pix
+                    </Button>
+                  </div>
+                  {result?.pix?.expirationDate && (
+                    <p className="text-xs text-muted-foreground">
+                      Válido até: {result.pix.expirationDate}
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
+                  segundos.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ul className="space-y-2">
+                  {BENEFITS.map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {result ? (
+                  <div className="space-y-5 border-t pt-5">
+
                   <div className="space-y-4 text-center">
                     <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
                     <img
