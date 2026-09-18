@@ -444,7 +444,10 @@ function CheckoutPage() {
                   )}
                 </Button>
               </form>
+                )}
+              </>
             )}
+
 
             {hasAccess && (
               <Button
