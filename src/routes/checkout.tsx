@@ -284,11 +284,6 @@ function CheckoutPage() {
                       Copiar Código Pix
                     </Button>
                   </div>
-                  {result?.pix?.expirationDate && (
-                    <p className="text-xs text-muted-foreground">
-                      Válido até: {result.pix.expirationDate}
-                    </p>
-                  )}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
