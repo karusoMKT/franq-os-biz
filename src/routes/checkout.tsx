@@ -59,6 +59,7 @@ interface SubscriptionResult {
   qrCodeImage: string | null;
   payloadPix: string | null;
   pix: { payload: string; encodedImage: string; expirationDate: string | null } | null;
+  error?: string;
 }
 
 /** Extrai os dados do Pix da resposta da API, com fallback para os campos legados. */
