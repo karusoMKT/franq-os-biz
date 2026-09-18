@@ -212,13 +212,21 @@ function CheckoutPage() {
   };
 
   const copyPix = async () => {
-    const payload = result?.payloadPix ?? result?.pix?.payload;
-    if (!payload) return;
-    await navigator.clipboard.writeText(payload);
-    toast.success("Código Pix copiado!");
+    if (!pixData?.payload) return;
+    try {
+      await navigator.clipboard.writeText(pixData.payload);
+      toast.success("Código Pix copiado!");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+    }
   };
 
-  const qrImage = result?.qrCodeImage ?? result?.pix?.encodedImage;
+  const pixQrSrc = pixData
+    ? pixData.encodedImage.startsWith("data:image")
+      ? pixData.encodedImage
+      : `data:image/png;base64,${pixData.encodedImage}`
+    : null;
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
