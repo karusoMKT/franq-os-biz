@@ -17,7 +17,6 @@ function baseUrl(): string {
   return BASE_URL;
 }
 
-
 async function asaas<T = any>(
   path: string,
   init: { method?: string; body?: unknown } = {},
@@ -83,7 +82,7 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           try {
             body = await request.json();
           } catch {
-            return json({ error: "Corpo da requisição inválido" }, 400);
+            return json({ success: false, error: "Corpo da requisição inválido" }, 400);
           }
 
           const name = String(body?.name ?? "").trim();
@@ -93,19 +92,25 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           const cleanPhone = onlyNumbers(body?.phone ?? body?.mobilePhone);
           const cleanPostalCode = onlyNumbers(body?.postalCode);
 
-          if (name.length < 2) return json({ error: "Informe o nome completo." }, 400);
-          if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "E-mail inválido." }, 400);
+          if (name.length < 2) return json({ success: false, error: "Informe o nome completo." }, 400);
+          if (!/^\S+@\S+\.\S+$/.test(email)) return json({ success: false, error: "E-mail inválido." }, 400);
           if (cleanCpfCnpj.length !== 11 && cleanCpfCnpj.length !== 14) {
-            return json({ error: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." }, 400);
+            return json(
+              { success: false, error: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." },
+              400,
+            );
           }
           if (cleanPhone && (cleanPhone.length < 10 || cleanPhone.length > 11)) {
-            return json({ error: "Telefone inválido. Use DDD + número." }, 400);
+            return json(
+              { success: false, error: "Telefone inválido. Use DDD + número." },
+              400,
+            );
           }
           if (cleanPostalCode && cleanPostalCode.length !== 8) {
-            return json({ error: "CEP deve ter 8 dígitos." }, 400);
+            return json({ success: false, error: "CEP deve ter 8 dígitos." }, 400);
           }
           if (paymentMethod !== "PIX" && paymentMethod !== "CREDIT_CARD") {
-            return json({ error: "Forma de pagamento inválida." }, 400);
+            return json({ success: false, error: "Forma de pagamento inválida." }, 400);
           }
 
           // 3a. Criar (ou reaproveitar) o cliente no Asaas
@@ -131,7 +136,10 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
               },
             });
             if (!customer.ok || !customer.data?.id) {
-              return json({ error: customer.error ?? "Falha ao criar cliente no Asaas" }, 400);
+              return json(
+                { success: false, error: customer.error ?? "Falha ao criar cliente no Asaas" },
+                400,
+              );
             }
             customerId = customer.data.id;
           }
@@ -149,7 +157,13 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
             },
           });
           if (!subscription.ok || !subscription.data?.id) {
-            return json({ error: subscription.error ?? "Falha ao criar assinatura no Asaas" }, 400);
+            return json(
+              {
+                success: false,
+                error: subscription.error ?? "Falha ao criar assinatura no Asaas",
+              },
+              400,
+            );
           }
           const subscriptionId = subscription.data.id;
 
@@ -164,26 +178,48 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
               .eq("user_id", userId);
           }
 
-          // 3d. Buscar a primeira fatura vinculada à assinatura
+          // 3d. Pausa de sincronização: o Asaas leva ~1s para registar a fatura inicial
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          // 3e. Listar as faturas vinculadas à assinatura
           const payments = await asaas<{
             data?: Array<{ id: string; invoiceUrl?: string; status?: string }>;
           }>(`/subscriptions/${subscriptionId}/payments`);
-          const paymentId = payments.data?.data?.[0]?.id ?? null;
-          const invoiceUrl = payments.data?.data?.[0]?.invoiceUrl ?? null;
 
-          // 3e. Buscar o QR Code Pix dessa fatura
-          let pix: { encodedImage: string; payload: string } | null = null;
-          if (paymentId) {
-            const qr = await asaas<{
-              encodedImage?: string;
-              payload?: string;
-              expirationDate?: string;
-            }>(`/payments/${paymentId}/pixQrCode`);
-            if (qr.ok && qr.data?.encodedImage && qr.data?.payload) {
-              pix = { encodedImage: qr.data.encodedImage, payload: qr.data.payload };
-            } else {
-              console.error("[asaas] pixQrCode", qr.error);
-            }
+          const firstPayment = payments.data?.data?.[0];
+          if (!payments.ok || !firstPayment?.id) {
+            console.error("[asaas] nenhuma fatura encontrada para a assinatura", {
+              subscriptionId,
+              error: payments.error,
+            });
+            return json(
+              {
+                success: false,
+                error: "A fatura inicial ainda não está disponível. Tente novamente em instantes.",
+              },
+              400,
+            );
+          }
+
+          const paymentId = firstPayment.id;
+          const invoiceUrl = firstPayment.invoiceUrl ?? null;
+
+          // 3f. Obter o QR Code Pix dessa fatura
+          const qr = await asaas<{
+            encodedImage?: string;
+            payload?: string;
+            expirationDate?: string;
+          }>(`/payments/${paymentId}/pixQrCode`);
+
+          if (!qr.ok || !qr.data?.encodedImage || !qr.data?.payload) {
+            console.error("[asaas] pixQrCode", { paymentId, error: qr.error });
+            return json(
+              {
+                success: false,
+                error: qr.error ?? "Não foi possível gerar o QR Code Pix. Tente novamente.",
+              },
+              400,
+            );
           }
 
           return json({
@@ -192,18 +228,20 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
             customerId,
             paymentId,
             invoiceUrl,
-            pix,
+            pix: {
+              encodedImage: qr.data.encodedImage,
+              payload: qr.data.payload,
+              expirationDate: qr.data.expirationDate ?? null,
+            },
           });
         } catch (error) {
           console.error("[asaas-create-subscription] erro inesperado:", error);
-          return new Response(
-            JSON.stringify({
-              error: error instanceof Error ? error.message : "Erro interno do servidor",
-            }),
+          return json(
             {
-              status: 400,
-              headers: { "Content-Type": "application/json" },
+              success: false,
+              error: error instanceof Error ? error.message : "Erro interno do servidor",
             },
+            400,
           );
         }
       },
