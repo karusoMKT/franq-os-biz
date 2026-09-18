@@ -183,10 +183,21 @@ function CheckoutPage() {
         );
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as SubscriptionResult;
       if (!res.ok) throw new Error(data?.error ?? "Falha ao gerar assinatura");
 
-      setResult(data as SubscriptionResult);
+      setResult(data);
+
+      const nextPix = extractPixData(data);
+      setPixData(nextPix);
+
+      if (billingType === "PIX" && !nextPix) {
+        toast.error("Não foi possível exibir o QR Code Pix.", {
+          description: "Tente novamente ou escolha cartão de crédito.",
+        });
+        return;
+      }
+
       toast.success("Assinatura gerada!", {
         description:
           billingType === "PIX"
