@@ -136,12 +136,12 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
             customerId = customer.data.id;
           }
 
-          // 3b. Criar assinatura recorrente
+          // 3b. Criar assinatura recorrente (billingType BOLETO gera fatura com Pix)
           const subscription = await asaas<{ id: string }>("/subscriptions", {
             method: "POST",
             body: {
               customer: customerId,
-              billingType: paymentMethod,
+              billingType: "BOLETO",
               value: PLAN_VALUE,
               nextDueDate: todayYYYYMMDD(),
               cycle: "MONTHLY",
@@ -153,7 +153,7 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
           const subscriptionId = subscription.data.id;
 
-          // 3d. Persistir IDs no perfil (quando houver usuário autenticado)
+          // 3c. Persistir IDs no perfil (quando houver usuário autenticado)
           if (userId) {
             await supabaseAdmin
               .from("profiles")
@@ -164,33 +164,23 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
               .eq("user_id", userId);
           }
 
-          // Primeira fatura gerada pela assinatura (preferindo a pendente)
+          // 3d. Buscar a primeira fatura vinculada à assinatura
           const payments = await asaas<{
             data?: Array<{ id: string; invoiceUrl?: string; status?: string }>;
           }>(`/subscriptions/${subscriptionId}/payments`);
-          const payment =
-            payments.data?.data?.find((p) => p.status === "PENDING") ??
-            payments.data?.data?.[0] ??
-            null;
+          const paymentId = payments.data?.data?.[0]?.id ?? null;
+          const invoiceUrl = payments.data?.data?.[0]?.invoiceUrl ?? null;
 
-          // 3c. Pix: QR Code + copia e cola
-          let qrCodeImage: string | null = null;
-          let payloadPix: string | null = null;
-          let pixExpirationDate: string | null = null;
-
-          if (paymentMethod === "PIX" && payment?.id) {
+          // 3e. Buscar o QR Code Pix dessa fatura
+          let pix: { encodedImage: string; payload: string } | null = null;
+          if (paymentId) {
             const qr = await asaas<{
               encodedImage?: string;
               payload?: string;
               expirationDate?: string;
-            }>(`/payments/${payment.id}/pixQrCode`);
-            if (qr.ok && qr.data?.payload) {
-              payloadPix = qr.data.payload;
-              pixExpirationDate = qr.data.expirationDate ?? null;
-              const image = qr.data.encodedImage ?? "";
-              qrCodeImage = image.startsWith("data:image")
-                ? image
-                : `data:image/png;base64,${image}`;
+            }>(`/payments/${paymentId}/pixQrCode`);
+            if (qr.ok && qr.data?.encodedImage && qr.data?.payload) {
+              pix = { encodedImage: qr.data.encodedImage, payload: qr.data.payload };
             } else {
               console.error("[asaas] pixQrCode", qr.error);
             }
@@ -200,18 +190,9 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
             success: true,
             subscriptionId,
             customerId,
-            paymentId: payment?.id ?? null,
-            invoiceUrl: payment?.invoiceUrl ?? null,
-            qrCodeImage,
-            payloadPix,
-            pix:
-              payloadPix && qrCodeImage
-                ? {
-                    encodedImage: qrCodeImage,
-                    payload: payloadPix,
-                    expirationDate: pixExpirationDate,
-                  }
-                : null,
+            paymentId,
+            invoiceUrl,
+            pix,
           });
         } catch (error) {
           console.error("[asaas-create-subscription] erro inesperado:", error);
