@@ -310,18 +310,27 @@ function CheckoutPage() {
                   ))}
                 </ul>
 
-                {result ? (
+                {result && billingType === "CREDIT_CARD" && result.invoiceUrl ? (
                   <div className="space-y-5 border-t pt-5">
-                    {billingType === "CREDIT_CARD" && result.invoiceUrl && (
-                  <Button asChild className="w-full">
-                    <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Pagar com cartão
-                    </a>
-                  </Button>
-                )}
-              </div>
-            ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Conclua o pagamento na página segura do Asaas.
+                    </p>
+                    <Button asChild className="w-full">
+                      <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pagar com cartão
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => setResult(null)}
+                    >
+                      Voltar
+                    </Button>
+                  </div>
+                ) : (
               <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
                 <div className="grid grid-cols-2 gap-2">
                   {(
