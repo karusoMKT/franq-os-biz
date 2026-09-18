@@ -46,6 +46,11 @@ const BENEFITS = [
 
 type BillingType = "PIX" | "CREDIT_CARD";
 
+interface PixData {
+  encodedImage: string;
+  payload: string;
+}
+
 interface SubscriptionResult {
   subscriptionId: string;
   customerId: string;
@@ -54,6 +59,15 @@ interface SubscriptionResult {
   qrCodeImage: string | null;
   payloadPix: string | null;
   pix: { payload: string; encodedImage: string; expirationDate: string | null } | null;
+}
+
+/** Extrai os dados do Pix da resposta da API, com fallback para os campos legados. */
+function extractPixData(data: SubscriptionResult | null): PixData | null {
+  if (!data) return null;
+  const encodedImage = data.pix?.encodedImage ?? data.qrCodeImage ?? null;
+  const payload = data.pix?.payload ?? data.payloadPix ?? null;
+  if (!encodedImage || !payload) return null;
+  return { encodedImage, payload };
 }
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");
@@ -120,6 +134,7 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
   const [result, setResult] = useState<SubscriptionResult | null>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
     register,
