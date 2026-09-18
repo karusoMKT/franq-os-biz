@@ -190,7 +190,7 @@ function CheckoutPage() {
 
       if (billingType === "PIX" && !nextPix) {
         toast.error("Não foi possível exibir o QR Code Pix.", {
-          description: "Tente novamente ou escolha cartão de crédito.",
+          description: "Tente novamente em alguns instantes.",
         });
         return;
       }
