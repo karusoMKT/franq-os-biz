@@ -52,23 +52,19 @@ interface PixData {
 }
 
 interface SubscriptionResult {
+  success: boolean;
   subscriptionId: string;
   customerId: string;
   paymentId: string | null;
   invoiceUrl: string | null;
-  qrCodeImage: string | null;
-  payloadPix: string | null;
-  pix: { payload: string; encodedImage: string; expirationDate: string | null } | null;
+  pix: { encodedImage: string; payload: string } | null;
   error?: string;
 }
 
-/** Extrai os dados do Pix da resposta da API, com fallback para os campos legados. */
+/** Extrai os dados do Pix da resposta da API. */
 function extractPixData(data: SubscriptionResult | null): PixData | null {
-  if (!data) return null;
-  const encodedImage = data.pix?.encodedImage ?? data.qrCodeImage ?? null;
-  const payload = data.pix?.payload ?? data.payloadPix ?? null;
-  if (!encodedImage || !payload) return null;
-  return { encodedImage, payload };
+  if (!data?.pix?.encodedImage || !data.pix.payload) return null;
+  return { encodedImage: data.pix.encodedImage, payload: data.pix.payload };
 }
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");
@@ -194,7 +190,7 @@ function CheckoutPage() {
 
       if (billingType === "PIX" && !nextPix) {
         toast.error("Não foi possível exibir o QR Code Pix.", {
-          description: "Tente novamente ou escolha cartão de crédito.",
+          description: "Tente novamente em alguns instantes.",
         });
         return;
       }
@@ -288,11 +284,6 @@ function CheckoutPage() {
                       Copiar Código Pix
                     </Button>
                   </div>
-                  {result?.pix?.expirationDate && (
-                    <p className="text-xs text-muted-foreground">
-                      Válido até: {result.pix.expirationDate}
-                    </p>
-                  )}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
