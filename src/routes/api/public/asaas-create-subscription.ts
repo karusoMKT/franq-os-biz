@@ -65,14 +65,18 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          // 1. Autenticação do chamador
+          // 1. Autenticação opcional: se houver token válido, vinculamos os IDs ao perfil.
+          //    A rota é pública para o checkout e nunca deve retornar 401 por falta de token.
           const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-          if (!token) return json({ error: "Não autenticado" }, 401);
-
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-          const user = userData?.user;
-          if (userError || !user) return json({ error: "Sessão inválida" }, 401);
+
+          let userId: string | null = null;
+          if (token) {
+            const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+            if (!userError && userData?.user) {
+              userId = userData.user.id;
+            }
+          }
 
           // 2. Entrada + sanitização obrigatória
           let body: any;
@@ -105,11 +109,13 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
 
           // 3a. Criar (ou reaproveitar) o cliente no Asaas
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .select("id, asaas_customer_id")
-            .eq("user_id", user.id)
-            .maybeSingle();
+          const { data: profile } = userId
+            ? await supabaseAdmin
+                .from("profiles")
+                .select("id, asaas_customer_id")
+                .eq("user_id", userId)
+                .maybeSingle()
+            : { data: null };
 
           let customerId = profile?.asaas_customer_id ?? null;
 
@@ -147,14 +153,16 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
           const subscriptionId = subscription.data.id;
 
-          // 3d. Persistir IDs no perfil
-          await supabaseAdmin
-            .from("profiles")
-            .update({
-              asaas_customer_id: customerId,
-              asaas_subscription_id: subscriptionId,
-            })
-            .eq("user_id", user.id);
+          // 3d. Persistir IDs no perfil (quando houver usuário autenticado)
+          if (userId) {
+            await supabaseAdmin
+              .from("profiles")
+              .update({
+                asaas_customer_id: customerId,
+                asaas_subscription_id: subscriptionId,
+              })
+              .eq("user_id", userId);
+          }
 
           // Primeira cobrança gerada pela assinatura
           const payments = await asaas<{ data?: Array<{ id: string; invoiceUrl?: string }> }>(
