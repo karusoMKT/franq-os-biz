@@ -53,7 +53,7 @@ interface SubscriptionResult {
   invoiceUrl: string | null;
   qrCodeImage: string | null;
   payloadPix: string | null;
-  pix: { payload: string; encodedImage: string } | null;
+  pix: { payload: string; encodedImage: string; expirationDate: string | null } | null;
 }
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");

@@ -164,22 +164,29 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
               .eq("user_id", userId);
           }
 
-          // Primeira cobrança gerada pela assinatura
-          const payments = await asaas<{ data?: Array<{ id: string; invoiceUrl?: string }> }>(
-            `/subscriptions/${subscriptionId}/payments`,
-          );
-          const payment = payments.data?.data?.[0] ?? null;
+          // Primeira fatura gerada pela assinatura (preferindo a pendente)
+          const payments = await asaas<{
+            data?: Array<{ id: string; invoiceUrl?: string; status?: string }>;
+          }>(`/subscriptions/${subscriptionId}/payments`);
+          const payment =
+            payments.data?.data?.find((p) => p.status === "PENDING") ??
+            payments.data?.data?.[0] ??
+            null;
 
           // 3c. Pix: QR Code + copia e cola
           let qrCodeImage: string | null = null;
           let payloadPix: string | null = null;
+          let pixExpirationDate: string | null = null;
 
           if (paymentMethod === "PIX" && payment?.id) {
-            const qr = await asaas<{ encodedImage?: string; payload?: string }>(
-              `/payments/${payment.id}/pixQrCode`,
-            );
+            const qr = await asaas<{
+              encodedImage?: string;
+              payload?: string;
+              expirationDate?: string;
+            }>(`/payments/${payment.id}/pixQrCode`);
             if (qr.ok && qr.data?.payload) {
               payloadPix = qr.data.payload;
+              pixExpirationDate = qr.data.expirationDate ?? null;
               const image = qr.data.encodedImage ?? "";
               qrCodeImage = image.startsWith("data:image")
                 ? image
@@ -190,16 +197,20 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
 
           return json({
+            success: true,
             subscriptionId,
             customerId,
             paymentId: payment?.id ?? null,
             invoiceUrl: payment?.invoiceUrl ?? null,
             qrCodeImage,
             payloadPix,
-            // compatibilidade com o formato consumido hoje pelo checkout
             pix:
               payloadPix && qrCodeImage
-                ? { payload: payloadPix, encodedImage: qrCodeImage }
+                ? {
+                    encodedImage: qrCodeImage,
+                    payload: payloadPix,
+                    expirationDate: pixExpirationDate,
+                  }
                 : null,
           });
         } catch (error) {
