@@ -189,7 +189,7 @@ function CheckoutPage() {
     const payload = result?.payloadPix ?? result?.pix?.payload;
     if (!payload) return;
     await navigator.clipboard.writeText(payload);
-    toast.success("Chave Pix copiada!");
+    toast.success("Código Pix copiado!");
   };
 
   const qrImage = result?.qrCodeImage ?? result?.pix?.encodedImage;
