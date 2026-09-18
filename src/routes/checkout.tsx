@@ -46,6 +46,11 @@ const BENEFITS = [
 
 type BillingType = "PIX" | "CREDIT_CARD";
 
+interface PixData {
+  encodedImage: string;
+  payload: string;
+}
+
 interface SubscriptionResult {
   subscriptionId: string;
   customerId: string;
@@ -54,6 +59,16 @@ interface SubscriptionResult {
   qrCodeImage: string | null;
   payloadPix: string | null;
   pix: { payload: string; encodedImage: string; expirationDate: string | null } | null;
+  error?: string;
+}
+
+/** Extrai os dados do Pix da resposta da API, com fallback para os campos legados. */
+function extractPixData(data: SubscriptionResult | null): PixData | null {
+  if (!data) return null;
+  const encodedImage = data.pix?.encodedImage ?? data.qrCodeImage ?? null;
+  const payload = data.pix?.payload ?? data.payloadPix ?? null;
+  if (!encodedImage || !payload) return null;
+  return { encodedImage, payload };
 }
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");
@@ -120,6 +135,7 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
   const [result, setResult] = useState<SubscriptionResult | null>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
     register,
@@ -168,10 +184,21 @@ function CheckoutPage() {
         );
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as SubscriptionResult;
       if (!res.ok) throw new Error(data?.error ?? "Falha ao gerar assinatura");
 
-      setResult(data as SubscriptionResult);
+      setResult(data);
+
+      const nextPix = extractPixData(data);
+      setPixData(nextPix);
+
+      if (billingType === "PIX" && !nextPix) {
+        toast.error("Não foi possível exibir o QR Code Pix.", {
+          description: "Tente novamente ou escolha cartão de crédito.",
+        });
+        return;
+      }
+
       toast.success("Assinatura gerada!", {
         description:
           billingType === "PIX"
@@ -186,13 +213,21 @@ function CheckoutPage() {
   };
 
   const copyPix = async () => {
-    const payload = result?.payloadPix ?? result?.pix?.payload;
-    if (!payload) return;
-    await navigator.clipboard.writeText(payload);
-    toast.success("Código Pix copiado!");
+    if (!pixData?.payload) return;
+    try {
+      await navigator.clipboard.writeText(pixData.payload);
+      toast.success("Código Pix copiado!");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
+    }
   };
 
-  const qrImage = result?.qrCodeImage ?? result?.pix?.encodedImage;
+  const pixQrSrc = pixData
+    ? pixData.encodedImage.startsWith("data:image")
+      ? pixData.encodedImage
+      : `data:image/png;base64,${pixData.encodedImage}`
+    : null;
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
@@ -228,62 +263,75 @@ function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <ul className="space-y-2">
-              {BENEFITS.map((b) => (
-                <li key={b} className="flex items-start gap-2 text-sm">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
+            {pixData ? (
+              <div className="space-y-4 border-t pt-5 text-center">
+                <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
 
-            {result ? (
-              <div className="space-y-5 border-t pt-5">
-                {billingType === "PIX" && qrImage ? (
-                  <div className="space-y-4 text-center">
-                    <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
-                    <img
-                      src={qrImage.startsWith("data:image") ? qrImage : `data:image/png;base64,${qrImage}`}
-                      alt="QR Code Pix"
-                      className="mx-auto h-64 w-64 rounded-xl border bg-white p-3 object-contain"
+                <img
+                  src={pixQrSrc ?? undefined}
+                  alt="QR Code Pix"
+                  className="w-56 h-56 mx-auto my-4 rounded-lg border p-2 bg-white object-contain"
+                />
+
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pix-payload"
+                      readOnly
+                      value={pixData.payload}
+                      className="text-xs font-mono"
+                      onFocus={(e) => e.currentTarget.select()}
                     />
-                    <div className="space-y-2 text-left">
-                      <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="pix-payload"
-                          readOnly
-                          value={result?.payloadPix ?? result?.pix?.payload ?? ""}
-                          className="text-xs"
-                        />
-                        <Button type="button" variant="outline" onClick={copyPix}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copiar Código Pix
-                        </Button>
-                      </div>
-                      {result?.pix?.expirationDate && (
-                        <p className="text-xs text-muted-foreground">
-                          Válido até: {result.pix.expirationDate}
-                        </p>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
-                      segundos.
-                    </p>
+                    <Button type="button" variant="outline" onClick={copyPix}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copiar Código Pix
+                    </Button>
                   </div>
-                ) : null}
+                  {result?.pix?.expirationDate && (
+                    <p className="text-xs text-muted-foreground">
+                      Válido até: {result.pix.expirationDate}
+                    </p>
+                  )}
+                </div>
 
-                {billingType === "CREDIT_CARD" && result.invoiceUrl && (
-                  <Button asChild className="w-full">
-                    <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Pagar com cartão
-                    </a>
-                  </Button>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
+                  segundos.
+                </p>
               </div>
             ) : (
+              <>
+                <ul className="space-y-2">
+                  {BENEFITS.map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {result && billingType === "CREDIT_CARD" && result.invoiceUrl ? (
+                  <div className="space-y-5 border-t pt-5">
+                    <p className="text-sm text-muted-foreground">
+                      Conclua o pagamento na página segura do Asaas.
+                    </p>
+                    <Button asChild className="w-full">
+                      <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pagar com cartão
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => setResult(null)}
+                    >
+                      Voltar
+                    </Button>
+                  </div>
+                ) : (
               <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
                 <div className="grid grid-cols-2 gap-2">
                   {(
@@ -397,7 +445,10 @@ function CheckoutPage() {
                   )}
                 </Button>
               </form>
+                )}
+              </>
             )}
+
 
             {hasAccess && (
               <Button
