@@ -65,14 +65,18 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          // 1. Autenticação do chamador
+          // 1. Autenticação opcional: se houver token válido, vinculamos os IDs ao perfil.
+          //    A rota é pública para o checkout e nunca deve retornar 401 por falta de token.
           const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-          if (!token) return json({ error: "Não autenticado" }, 401);
-
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
-          const user = userData?.user;
-          if (userError || !user) return json({ error: "Sessão inválida" }, 401);
+
+          let userId: string | null = null;
+          if (token) {
+            const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+            if (!userError && userData?.user) {
+              userId = userData.user.id;
+            }
+          }
 
           // 2. Entrada + sanitização obrigatória
           let body: any;
