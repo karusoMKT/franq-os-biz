@@ -109,11 +109,13 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
 
           // 3a. Criar (ou reaproveitar) o cliente no Asaas
-          const { data: profile } = await supabaseAdmin
-            .from("profiles")
-            .select("id, asaas_customer_id")
-            .eq("user_id", user.id)
-            .maybeSingle();
+          const { data: profile } = userId
+            ? await supabaseAdmin
+                .from("profiles")
+                .select("id, asaas_customer_id")
+                .eq("user_id", userId)
+                .maybeSingle()
+            : { data: null };
 
           let customerId = profile?.asaas_customer_id ?? null;
 
@@ -151,14 +153,16 @@ export const Route = createFileRoute("/api/public/asaas-create-subscription")({
           }
           const subscriptionId = subscription.data.id;
 
-          // 3d. Persistir IDs no perfil
-          await supabaseAdmin
-            .from("profiles")
-            .update({
-              asaas_customer_id: customerId,
-              asaas_subscription_id: subscriptionId,
-            })
-            .eq("user_id", user.id);
+          // 3d. Persistir IDs no perfil (quando houver usuário autenticado)
+          if (userId) {
+            await supabaseAdmin
+              .from("profiles")
+              .update({
+                asaas_customer_id: customerId,
+                asaas_subscription_id: subscriptionId,
+              })
+              .eq("user_id", userId);
+          }
 
           // Primeira cobrança gerada pela assinatura
           const payments = await asaas<{ data?: Array<{ id: string; invoiceUrl?: string }> }>(

@@ -143,16 +143,12 @@ function CheckoutPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) {
-        toast.error("Sessão expirada. Entre novamente.");
-        return;
-      }
 
       const res = await fetch("/api/public/asaas-create-subscription", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           name: form.name.trim(),
