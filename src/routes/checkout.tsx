@@ -312,42 +312,7 @@ function CheckoutPage() {
 
                 {result ? (
                   <div className="space-y-5 border-t pt-5">
-
-                  <div className="space-y-4 text-center">
-                    <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
-                    <img
-                      src={qrImage.startsWith("data:image") ? qrImage : `data:image/png;base64,${qrImage}`}
-                      alt="QR Code Pix"
-                      className="mx-auto h-64 w-64 rounded-xl border bg-white p-3 object-contain"
-                    />
-                    <div className="space-y-2 text-left">
-                      <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="pix-payload"
-                          readOnly
-                          value={result?.payloadPix ?? result?.pix?.payload ?? ""}
-                          className="text-xs"
-                        />
-                        <Button type="button" variant="outline" onClick={copyPix}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copiar Código Pix
-                        </Button>
-                      </div>
-                      {result?.pix?.expirationDate && (
-                        <p className="text-xs text-muted-foreground">
-                          Válido até: {result.pix.expirationDate}
-                        </p>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
-                      segundos.
-                    </p>
-                  </div>
-                ) : null}
-
-                {billingType === "CREDIT_CARD" && result.invoiceUrl && (
+                    {billingType === "CREDIT_CARD" && result.invoiceUrl && (
                   <Button asChild className="w-full">
                     <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
                       <CreditCard className="mr-2 h-4 w-4" />
