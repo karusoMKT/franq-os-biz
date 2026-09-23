@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
+import { Check, Copy, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -13,7 +13,14 @@ import { FranqosLogo } from "@/components/franqos-logo";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription, PLAN_PRICE_LABEL } from "@/hooks/use-subscription";
 
-const INFINITEPAY_PLAN_URL = "https://invoice.infinitepay.io/plans/franqos/c8TvgHTxBd";
+interface PixData {
+  encodedImage: string;
+  payload: string;
+  txid?: string;
+}
+
+const withBase64Prefix = (image: string) =>
+  image.startsWith("data:") ? image : `data:image/png;base64,${image}`;
 
 export const Route = createFileRoute("/checkout")({
   ssr: false,
@@ -111,6 +118,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
     register,
@@ -129,36 +137,54 @@ function CheckoutPage() {
     if (profile.email) setValue("email", profile.email);
   }, [profile, setValue]);
 
+  const copyPix = async () => {
+    if (!pixData) return;
+    try {
+      await navigator.clipboard.writeText(pixData.payload);
+      toast.success("Código Pix copiado!");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código manualmente.");
+    }
+  };
+
   const onSubmit = async (form: CheckoutForm) => {
     setLoading(true);
     try {
-      // Se houver usuário autenticado, salva o status temporário no perfil
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user ?? null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (user) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            name: form.name.trim(),
-            subscription_status: "pending_payment",
-          })
-          .eq("user_id", user.id);
-
-        if (error) {
-          console.error("[checkout] falha ao salvar status pendente:", error);
-          // Não bloqueia o redirecionamento por causa disso
-        }
-      }
-
-      toast.success("Redirecionando para o pagamento...", {
-        description: "Conclua a assinatura na página segura da InfinitePay.",
+      const res = await fetch("/api/public/efi-create-charge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          cpfCnpj: onlyNumbers(form.cpfCnpj),
+          phone: onlyNumbers(form.phone),
+        }),
       });
 
-      window.location.href = INFINITEPAY_PLAN_URL;
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Resposta inesperada do servidor. Tente novamente em instantes.");
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data?.success || !data?.pix?.encodedImage || !data?.pix?.payload) {
+        throw new Error(data?.error ?? "Não foi possível gerar o Pix. Tente novamente.");
+      }
+
+      setPixData(data.pix as PixData);
+      toast.success("Pix gerado!", {
+        description: "Escaneie o QR Code ou copie o código para pagar.",
+      });
     } catch (err) {
-      console.error("[checkout] erro ao redirecionar:", err);
-      toast.error("Não foi possível iniciar o pagamento. Tente novamente.");
+      console.error("[checkout] erro ao gerar Pix:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar o pagamento.");
+    } finally {
       setLoading(false);
     }
   };
@@ -197,6 +223,33 @@ function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {pixData ? (
+              <div className="space-y-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Escaneie o QR Code abaixo no app do seu banco para pagar {PLAN_PRICE_LABEL}.
+                </p>
+                <img
+                  src={withBase64Prefix(pixData.encodedImage)}
+                  alt="QR Code Pix"
+                  className="w-56 h-56 mx-auto my-4 rounded-lg border p-2"
+                />
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="pix-payload">Pix Copia e Cola</Label>
+                  <Input id="pix-payload" readOnly value={pixData.payload} className="text-xs" />
+                  <Button type="button" className="w-full" onClick={copyPix}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar Código Pix
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Após o pagamento, seu acesso é liberado automaticamente.
+                </p>
+                <Button variant="ghost" className="w-full" onClick={() => setPixData(null)}>
+                  Voltar
+                </Button>
+              </div>
+            ) : (
+              <>
             <ul className="space-y-2">
               {BENEFITS.map((b) => (
                 <li key={b} className="flex items-start gap-2 text-sm">
@@ -312,7 +365,7 @@ function CheckoutPage() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecionando...
+                    Gerando Pix...
                   </>
                 ) : (
                   <>Pagar {PLAN_PRICE_LABEL}</>
@@ -320,10 +373,12 @@ function CheckoutPage() {
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                Você será redirecionado para a página segura da InfinitePay para concluir o
-                pagamento. Assim que for confirmado, seu acesso é liberado automaticamente.
+                O pagamento é feito por Pix. Assim que for confirmado, seu acesso é liberado
+                automaticamente.
               </p>
             </form>
+              </>
+            )}
 
             {hasAccess && (
               <Button
