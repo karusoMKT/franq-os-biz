@@ -346,10 +346,12 @@ function CheckoutPage() {
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                Você será redirecionado para a página segura da InfinitePay para concluir o
-                pagamento. Assim que for confirmado, seu acesso é liberado automaticamente.
+                O pagamento é feito por Pix. Assim que for confirmado, seu acesso é liberado
+                automaticamente.
               </p>
             </form>
+              </>
+            )}
 
             {hasAccess && (
               <Button
