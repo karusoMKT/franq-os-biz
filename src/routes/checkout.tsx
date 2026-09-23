@@ -137,36 +137,54 @@ function CheckoutPage() {
     if (profile.email) setValue("email", profile.email);
   }, [profile, setValue]);
 
+  const copyPix = async () => {
+    if (!pixData) return;
+    try {
+      await navigator.clipboard.writeText(pixData.payload);
+      toast.success("Código Pix copiado!");
+    } catch {
+      toast.error("Não foi possível copiar. Selecione o código manualmente.");
+    }
+  };
+
   const onSubmit = async (form: CheckoutForm) => {
     setLoading(true);
     try {
-      // Se houver usuário autenticado, salva o status temporário no perfil
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user ?? null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (user) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            name: form.name.trim(),
-            subscription_status: "pending_payment",
-          })
-          .eq("user_id", user.id);
-
-        if (error) {
-          console.error("[checkout] falha ao salvar status pendente:", error);
-          // Não bloqueia o redirecionamento por causa disso
-        }
-      }
-
-      toast.success("Redirecionando para o pagamento...", {
-        description: "Conclua a assinatura na página segura da InfinitePay.",
+      const res = await fetch("/api/public/efi-create-charge", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          cpfCnpj: onlyNumbers(form.cpfCnpj),
+          phone: onlyNumbers(form.phone),
+        }),
       });
 
-      window.location.href = INFINITEPAY_PLAN_URL;
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Resposta inesperada do servidor. Tente novamente em instantes.");
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data?.success || !data?.pix?.encodedImage || !data?.pix?.payload) {
+        throw new Error(data?.error ?? "Não foi possível gerar o Pix. Tente novamente.");
+      }
+
+      setPixData(data.pix as PixData);
+      toast.success("Pix gerado!", {
+        description: "Escaneie o QR Code ou copie o código para pagar.",
+      });
     } catch (err) {
-      console.error("[checkout] erro ao redirecionar:", err);
-      toast.error("Não foi possível iniciar o pagamento. Tente novamente.");
+      console.error("[checkout] erro ao gerar Pix:", err);
+      toast.error(err instanceof Error ? err.message : "Não foi possível iniciar o pagamento.");
+    } finally {
       setLoading(false);
     }
   };
