@@ -223,6 +223,33 @@ function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {pixData ? (
+              <div className="space-y-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Escaneie o QR Code abaixo no app do seu banco para pagar {PLAN_PRICE_LABEL}.
+                </p>
+                <img
+                  src={withBase64Prefix(pixData.encodedImage)}
+                  alt="QR Code Pix"
+                  className="w-56 h-56 mx-auto my-4 rounded-lg border p-2"
+                />
+                <div className="space-y-2 text-left">
+                  <Label htmlFor="pix-payload">Pix Copia e Cola</Label>
+                  <Input id="pix-payload" readOnly value={pixData.payload} className="text-xs" />
+                  <Button type="button" className="w-full" onClick={copyPix}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar Código Pix
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Após o pagamento, seu acesso é liberado automaticamente.
+                </p>
+                <Button variant="ghost" className="w-full" onClick={() => setPixData(null)}>
+                  Voltar
+                </Button>
+              </div>
+            ) : (
+              <>
             <ul className="space-y-2">
               {BENEFITS.map((b) => (
                 <li key={b} className="flex items-start gap-2 text-sm">
