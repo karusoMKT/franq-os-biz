@@ -36,7 +36,7 @@ function efiRequest<T = any>(opts: EfiRequestOptions): Promise<{ status: number;
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
-        hostname: EFI_HOST,
+        hostname: efiHost(),
         port: 443,
         method: opts.method ?? "GET",
         path: opts.path,
@@ -81,7 +81,7 @@ function efiError(raw: string, data: any, fallback: string): string {
   );
 }
 
-/** OAuth2 client_credentials — https://pix.efipay.com.br/oauth/token */
+/** OAuth2 client_credentials — {host}/oauth/token */
 export async function getEfiAccessToken(): Promise<string> {
   const clientId = (process.env["EFI_CLIENT_ID"] ?? "").trim();
   const clientSecret = (process.env["EFI_CLIENT_SECRET"] ?? "").trim();
