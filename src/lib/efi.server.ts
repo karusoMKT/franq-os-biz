@@ -1,10 +1,10 @@
 import https from "node:https";
 
-/** Produção: pix.efipay.com.br | Sandbox: pix-h.efipay.com.br */
+/** Produção: pix.gerencianet.com.br | Sandbox: pix-h.gerencianet.com.br */
 function efiHost(): string {
   const sandbox = (process.env["EFI_SANDBOX"] ?? "").trim().toLowerCase();
   const isSandbox = sandbox === "true" || sandbox === "1";
-  const fallback = isSandbox ? "pix-h.efipay.com.br" : "pix.efipay.com.br";
+  const fallback = isSandbox ? "pix-h.gerencianet.com.br" : "pix.gerencianet.com.br";
 
   const raw = (process.env["EFI_BASE_URL"] ?? "").trim();
   if (!raw) return fallback;
