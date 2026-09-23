@@ -29,6 +29,7 @@ import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAuditsRouteImport } from './routes/_authenticated/audits'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
+import { Route as ApiPublicEfiCreateChargeRouteImport } from './routes/api/public/efi-create-charge'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 import { Route as ApiPublicAsaasCreateSubscriptionRouteImport } from './routes/api/public/asaas-create-subscription'
 import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
@@ -139,6 +140,12 @@ const ApiPublicWhatsappWebhookRoute =
     path: '/api/public/whatsapp-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicEfiCreateChargeRoute =
+  ApiPublicEfiCreateChargeRouteImport.update({
+    id: '/api/public/efi-create-charge',
+    path: '/api/public/efi-create-charge',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
   id: '/api/public/asaas-webhook',
   path: '/api/public/asaas-webhook',
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
   '/api/public/asaas-create-subscription': typeof ApiPublicAsaasCreateSubscriptionRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/efi-create-charge': typeof ApiPublicEfiCreateChargeRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
@@ -217,6 +225,7 @@ export interface FileRoutesByTo {
   '/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
   '/api/public/asaas-create-subscription': typeof ApiPublicAsaasCreateSubscriptionRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/efi-create-charge': typeof ApiPublicEfiCreateChargeRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
 }
@@ -245,6 +254,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/owner': typeof AuthenticatedDashboardOwnerRoute
   '/api/public/asaas-create-subscription': typeof ApiPublicAsaasCreateSubscriptionRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
+  '/api/public/efi-create-charge': typeof ApiPublicEfiCreateChargeRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/dashboard/owner'
     | '/api/public/asaas-create-subscription'
     | '/api/public/asaas-webhook'
+    | '/api/public/efi-create-charge'
     | '/api/public/whatsapp-webhook'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
@@ -298,6 +309,7 @@ export interface FileRouteTypes {
     | '/dashboard/owner'
     | '/api/public/asaas-create-subscription'
     | '/api/public/asaas-webhook'
+    | '/api/public/efi-create-charge'
     | '/api/public/whatsapp-webhook'
     | '/dashboard'
   id:
@@ -325,6 +337,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/owner'
     | '/api/public/asaas-create-subscription'
     | '/api/public/asaas-webhook'
+    | '/api/public/efi-create-charge'
     | '/api/public/whatsapp-webhook'
     | '/_authenticated/dashboard/'
   fileRoutesById: FileRoutesById
@@ -340,6 +353,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   ApiPublicAsaasCreateSubscriptionRoute: typeof ApiPublicAsaasCreateSubscriptionRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
+  ApiPublicEfiCreateChargeRoute: typeof ApiPublicEfiCreateChargeRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
 
@@ -485,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/efi-create-charge': {
+      id: '/api/public/efi-create-charge'
+      path: '/api/public/efi-create-charge'
+      fullPath: '/api/public/efi-create-charge'
+      preLoaderRoute: typeof ApiPublicEfiCreateChargeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/asaas-webhook': {
       id: '/api/public/asaas-webhook'
       path: '/api/public/asaas-webhook'
@@ -583,6 +604,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   ApiPublicAsaasCreateSubscriptionRoute: ApiPublicAsaasCreateSubscriptionRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
+  ApiPublicEfiCreateChargeRoute: ApiPublicEfiCreateChargeRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
 export const routeTree = rootRouteImport

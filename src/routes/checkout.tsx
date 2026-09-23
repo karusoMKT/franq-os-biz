@@ -13,7 +13,14 @@ import { FranqosLogo } from "@/components/franqos-logo";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription, PLAN_PRICE_LABEL } from "@/hooks/use-subscription";
 
-const INFINITEPAY_PLAN_URL = "https://invoice.infinitepay.io/plans/franqos/c8TvgHTxBd";
+interface PixData {
+  encodedImage: string;
+  payload: string;
+  txid?: string;
+}
+
+const withBase64Prefix = (image: string) =>
+  image.startsWith("data:") ? image : `data:image/png;base64,${image}`;
 
 export const Route = createFileRoute("/checkout")({
   ssr: false,
