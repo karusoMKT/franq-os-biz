@@ -123,7 +123,7 @@ function SignupPage() {
             <input
               className={fieldCls}
               required
-              placeholder="Ex: Reinaldo Santos"
+              placeholder="Seu nome completo"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
