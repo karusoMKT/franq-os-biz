@@ -1,6 +1,19 @@
 import https from "node:https";
 
-const EFI_HOST = "pix.efipay.com.br";
+/** Produção: pix.efipay.com.br | Sandbox: pix-h.efipay.com.br */
+function efiHost(): string {
+  const sandbox = (process.env["EFI_SANDBOX"] ?? "").trim().toLowerCase();
+  const isSandbox = sandbox === "true" || sandbox === "1";
+  const fallback = isSandbox ? "pix-h.efipay.com.br" : "pix.efipay.com.br";
+
+  const raw = (process.env["EFI_BASE_URL"] ?? "").trim();
+  if (!raw) return fallback;
+
+  // Sanitiza: remove protocolo duplicado/ausente e barras finais, evitando "https://https://..."
+  const cleaned = raw.replace(/^https?:\/\//i, "").replace(/\/+$/, "").trim();
+  if (!cleaned) return fallback;
+  return cleaned;
+}
 
 /** Certificado .p12 da Efí decodificado em memória (nunca gravado em disco) */
 function certBuffer(): Buffer {
