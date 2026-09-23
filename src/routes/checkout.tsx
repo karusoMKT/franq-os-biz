@@ -118,6 +118,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
     register,
