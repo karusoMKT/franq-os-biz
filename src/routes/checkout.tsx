@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check, Copy, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
+import { Check, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { FranqosLogo } from "@/components/franqos-logo";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription, PLAN_PRICE_LABEL } from "@/hooks/use-subscription";
+
+const INFINITEPAY_PLAN_URL = "https://invoice.infinitepay.io/plans/franqos/c8TvgHTxBd";
 
 export const Route = createFileRoute("/checkout")({
   ssr: false,
@@ -45,27 +47,6 @@ const BENEFITS = [
 ];
 
 type BillingType = "PIX" | "CREDIT_CARD";
-
-interface PixData {
-  encodedImage: string;
-  payload: string;
-}
-
-interface SubscriptionResult {
-  success: boolean;
-  subscriptionId: string;
-  customerId: string;
-  paymentId: string | null;
-  invoiceUrl: string | null;
-  pix: { encodedImage: string; payload: string } | null;
-  error?: string;
-}
-
-/** Extrai os dados do Pix da resposta da API. */
-function extractPixData(data: SubscriptionResult | null): PixData | null {
-  if (!data?.pix?.encodedImage || !data.pix.payload) return null;
-  return { encodedImage: data.pix.encodedImage, payload: data.pix.payload };
-}
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");
 
@@ -130,8 +111,6 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
-  const [result, setResult] = useState<SubscriptionResult | null>(null);
-  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
     register,
@@ -153,77 +132,36 @@ function CheckoutPage() {
   const onSubmit = async (form: CheckoutForm) => {
     setLoading(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      // Se houver usuário autenticado, salva o status temporário no perfil
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user ?? null;
 
-      const res = await fetch("/api/public/asaas-create-subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          cpfCnpj: onlyNumbers(form.cpfCnpj),
-          email: form.email.trim(),
-          phone: form.phone ? onlyNumbers(form.phone) : null,
-          billingType,
-        }),
-      });
+      if (user) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            name: form.name.trim(),
+            subscription_status: "pending_payment",
+          })
+          .eq("user_id", user.id);
 
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const errorText = await res.text();
-        console.error("Servidor retornou HTML/Texto:", errorText);
-        throw new Error(
-          `O servidor retornou um erro HTTP ${res.status}. Verifique se a rota da API está ativa na Vercel.`,
-        );
+        if (error) {
+          console.error("[checkout] falha ao salvar status pendente:", error);
+          // Não bloqueia o redirecionamento por causa disso
+        }
       }
 
-      const data = (await res.json()) as SubscriptionResult;
-      if (!res.ok) throw new Error(data?.error ?? "Falha ao gerar assinatura");
-
-      setResult(data);
-
-      const nextPix = extractPixData(data);
-      setPixData(nextPix);
-
-      if (billingType === "PIX" && !nextPix) {
-        toast.error("Não foi possível exibir o QR Code Pix.", {
-          description: "Tente novamente em alguns instantes.",
-        });
-        return;
-      }
-
-      toast.success("Assinatura gerada!", {
-        description:
-          billingType === "PIX"
-            ? "Pague o Pix abaixo para liberar o acesso."
-            : "Conclua o pagamento na página segura do cartão.",
+      toast.success("Redirecionando para o pagamento...", {
+        description: "Conclua a assinatura na página segura da InfinitePay.",
       });
+
+      window.location.href = INFINITEPAY_PLAN_URL;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar assinatura");
-    } finally {
+      console.error("[checkout] erro ao redirecionar:", err);
+      toast.error("Não foi possível iniciar o pagamento. Tente novamente.");
       setLoading(false);
     }
   };
-
-  const copyPix = async () => {
-    if (!pixData?.payload) return;
-    try {
-      await navigator.clipboard.writeText(pixData.payload);
-      toast.success("Código Pix copiado!");
-    } catch {
-      toast.error("Não foi possível copiar. Selecione o código e copie manualmente.");
-    }
-  };
-
-  const pixQrSrc = pixData
-    ? pixData.encodedImage.startsWith("data:image")
-      ? pixData.encodedImage
-      : `data:image/png;base64,${pixData.encodedImage}`
-    : null;
-
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
@@ -259,187 +197,133 @@ function CheckoutPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {pixData ? (
-              <div className="space-y-4 border-t pt-5 text-center">
-                <p className="text-sm font-medium">Pague com Pix para ativar agora</p>
+            <ul className="space-y-2">
+              {BENEFITS.map((b) => (
+                <li key={b} className="flex items-start gap-2 text-sm">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
 
-                <img
-                  src={pixQrSrc ?? undefined}
-                  alt="QR Code Pix"
-                  className="w-56 h-56 mx-auto my-4 rounded-lg border p-2 bg-white object-contain"
-                />
-
-                <div className="space-y-2 text-left">
-                  <Label htmlFor="pix-payload">Código Pix (Copia e Cola)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="pix-payload"
-                      readOnly
-                      value={pixData.payload}
-                      className="text-xs font-mono"
-                      onFocus={(e) => e.currentTarget.select()}
-                    />
-                    <Button type="button" variant="outline" onClick={copyPix}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copiar Código Pix
-                    </Button>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Assim que o Pix for pago, seu acesso será liberado automaticamente em alguns
-                  segundos.
-                </p>
+            <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    { value: "PIX", label: "Pix", icon: QrCode },
+                    { value: "CREDIT_CARD", label: "Cartão de Crédito", icon: CreditCard },
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setBillingType(opt.value)}
+                    className={`flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition ${
+                      billingType === opt.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <opt.icon className="h-4 w-4" />
+                    {opt.label}
+                  </button>
+                ))}
               </div>
-            ) : (
-              <>
-                <ul className="space-y-2">
-                  {BENEFITS.map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
 
-                {result && billingType === "CREDIT_CARD" && result.invoiceUrl ? (
-                  <div className="space-y-5 border-t pt-5">
-                    <p className="text-sm text-muted-foreground">
-                      Conclua o pagamento na página segura do Asaas.
-                    </p>
-                    <Button asChild className="w-full">
-                      <a href={result.invoiceUrl} target="_blank" rel="noreferrer">
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Pagar com cartão
-                      </a>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full"
-                      onClick={() => setResult(null)}
-                    >
-                      Voltar
-                    </Button>
-                  </div>
-                ) : (
-              <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { value: "PIX", label: "Pix", icon: QrCode },
-                      { value: "CREDIT_CARD", label: "Cartão de Crédito", icon: CreditCard },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setBillingType(opt.value)}
-                      className={`flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition ${
-                        billingType === opt.value
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-input text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      <opt.icon className="h-4 w-4" />
-                      {opt.label}
-                    </button>
-                  ))}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Nome completo</Label>
+                  <Input
+                    id="name"
+                    placeholder="Digite seu nome completo"
+                    autoComplete="name"
+                    {...register("name")}
+                  />
+                  {errors.name && (
+                    <p className="text-xs text-destructive">{errors.name.message}</p>
+                  )}
                 </div>
 
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="name">Nome completo</Label>
-                    <Input
-                      id="name"
-                      placeholder="Digite seu nome completo"
-                      autoComplete="name"
-                      {...register("name")}
-                    />
-                    {errors.name && (
-                      <p className="text-xs text-destructive">{errors.name.message}</p>
-                    )}
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="seu@email.com"
+                    {...register("email")}
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email.message}</p>
+                  )}
+                </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      type="text"
-                      inputMode="email"
-                      autoComplete="email"
-                      placeholder="seu@email.com"
-                      {...register("email")}
-                    />
-                    {errors.email && (
-                      <p className="text-xs text-destructive">{errors.email.message}</p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpfCnpj">CPF / CNPJ</Label>
+                  <Controller
+                    name="cpfCnpj"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="cpfCnpj"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="000.000.000-00"
+                        value={field.value}
+                        onChange={(e) => field.onChange(maskCpfCnpj(e.target.value))}
+                      />
                     )}
-                  </div>
+                  />
+                  {errors.cpfCnpj && (
+                    <p className="text-xs text-destructive">{errors.cpfCnpj.message}</p>
+                  )}
+                </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="cpfCnpj">CPF / CNPJ</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone">Telefone WhatsApp</Label>
+                  <div className="relative">
+                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Controller
-                      name="cpfCnpj"
+                      name="phone"
                       control={control}
                       render={({ field }) => (
                         <Input
-                          id="cpfCnpj"
+                          id="phone"
                           type="text"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          placeholder="000.000.000-00"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          placeholder="(00) 00000-0000"
+                          className="pl-9"
                           value={field.value}
-                          onChange={(e) => field.onChange(maskCpfCnpj(e.target.value))}
+                          onChange={(e) => field.onChange(maskPhone(e.target.value))}
                         />
                       )}
                     />
-                    {errors.cpfCnpj && (
-                      <p className="text-xs text-destructive">{errors.cpfCnpj.message}</p>
-                    )}
                   </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phone">Telefone WhatsApp</Label>
-                    <div className="relative">
-                      <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Controller
-                        name="phone"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            id="phone"
-                            type="text"
-                            inputMode="tel"
-                            autoComplete="tel"
-                            placeholder="(00) 00000-0000"
-                            className="pl-9"
-                            value={field.value}
-                            onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                          />
-                        )}
-                      />
-                    </div>
-                    {errors.phone && (
-                      <p className="text-xs text-destructive">{errors.phone.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                <Button className="w-full" size="lg" type="submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    <>Pagar {PLAN_PRICE_LABEL}</>
+                  {errors.phone && (
+                    <p className="text-xs text-destructive">{errors.phone.message}</p>
                   )}
-                </Button>
-              </form>
-                )}
-              </>
-            )}
+                </div>
+              </div>
 
+              <Button className="w-full" size="lg" type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Redirecionando...
+                  </>
+                ) : (
+                  <>Pagar {PLAN_PRICE_LABEL}</>
+                )}
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Você será redirecionado para a página segura da InfinitePay para concluir o
+                pagamento. Assim que for confirmado, seu acesso é liberado automaticamente.
+              </p>
+            </form>
 
             {hasAccess && (
               <Button
