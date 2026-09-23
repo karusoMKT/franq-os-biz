@@ -1,6 +1,19 @@
 import https from "node:https";
 
-const EFI_HOST = "pix.efipay.com.br";
+/** Produção: pix.efipay.com.br | Sandbox: pix-h.efipay.com.br */
+function efiHost(): string {
+  const sandbox = (process.env["EFI_SANDBOX"] ?? "").trim().toLowerCase();
+  const isSandbox = sandbox === "true" || sandbox === "1";
+  const fallback = isSandbox ? "pix-h.efipay.com.br" : "pix.efipay.com.br";
+
+  const raw = (process.env["EFI_BASE_URL"] ?? "").trim();
+  if (!raw) return fallback;
+
+  // Sanitiza: remove protocolo duplicado/ausente e barras finais, evitando "https://https://..."
+  const cleaned = raw.replace(/^https?:\/\//i, "").replace(/\/+$/, "").trim();
+  if (!cleaned) return fallback;
+  return cleaned;
+}
 
 /** Certificado .p12 da Efí decodificado em memória (nunca gravado em disco) */
 function certBuffer(): Buffer {
@@ -23,7 +36,7 @@ function efiRequest<T = any>(opts: EfiRequestOptions): Promise<{ status: number;
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
-        hostname: EFI_HOST,
+        hostname: efiHost(),
         port: 443,
         method: opts.method ?? "GET",
         path: opts.path,
@@ -68,7 +81,7 @@ function efiError(raw: string, data: any, fallback: string): string {
   );
 }
 
-/** OAuth2 client_credentials — https://pix.efipay.com.br/oauth/token */
+/** OAuth2 client_credentials — {host}/oauth/token */
 export async function getEfiAccessToken(): Promise<string> {
   const clientId = (process.env["EFI_CLIENT_ID"] ?? "").trim();
   const clientSecret = (process.env["EFI_CLIENT_SECRET"] ?? "").trim();
