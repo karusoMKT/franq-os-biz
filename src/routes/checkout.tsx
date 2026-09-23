@@ -365,7 +365,7 @@ function CheckoutPage() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecionando...
+                    Gerando Pix...
                   </>
                 ) : (
                   <>Pagar {PLAN_PRICE_LABEL}</>
