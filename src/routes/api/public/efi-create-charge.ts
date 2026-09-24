@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/public/efi-create-charge")({
           }
 
           const { createImmediatePixCharge } = await import("@/lib/efi.server");
-          const pix = await createImmediatePixCharge(
+          const pixResult = await createImmediatePixCharge(
             PLAN_VALUE,
             { name, cpfCnpj },
             "Assinatura FranqOS - Gestão SaaS",
@@ -57,7 +57,11 @@ export const Route = createFileRoute("/api/public/efi-create-charge")({
             }
           }
 
-          return json({ success: true, pix });
+          return json({
+            success: true,
+            qrcode: pixResult.qrcode,
+            imagemQrcode: pixResult.imagemQrcode,
+          });
         } catch (error) {
           console.error("[efi-create-charge] erro:", error);
           return json(

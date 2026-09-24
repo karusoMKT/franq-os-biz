@@ -173,11 +173,14 @@ function CheckoutPage() {
       }
 
       const data = await res.json();
-      if (!res.ok || !data?.success || !data?.pix?.encodedImage || !data?.pix?.payload) {
+      if (!res.ok || !data?.success || !data?.imagemQrcode || !data?.qrcode) {
         throw new Error(data?.error ?? "Não foi possível gerar o Pix. Tente novamente.");
       }
 
-      setPixData(data.pix as PixData);
+      setPixData({
+        encodedImage: data.imagemQrcode,
+        payload: data.qrcode,
+      });
       toast.success("Pix gerado!", {
         description: "Escaneie o QR Code ou copie o código para pagar.",
       });

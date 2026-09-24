@@ -1,19 +1,6 @@
 import https from "node:https";
 
-/** Produção: pix.gerencianet.com.br | Sandbox: pix-h.gerencianet.com.br */
-function efiHost(): string {
-  const sandbox = (process.env["EFI_SANDBOX"] ?? "").trim().toLowerCase();
-  const isSandbox = sandbox === "true" || sandbox === "1";
-  const fallback = isSandbox ? "pix-h.gerencianet.com.br" : "pix.gerencianet.com.br";
-
-  const raw = (process.env["EFI_BASE_URL"] ?? "").trim();
-  if (!raw) return fallback;
-
-  // Sanitiza: remove protocolo duplicado/ausente e barras finais, evitando "https://https://..."
-  const cleaned = raw.replace(/^https?:\/\//i, "").replace(/\/+$/, "").trim();
-  if (!cleaned) return fallback;
-  return cleaned;
-}
+const EFI_PRODUCTION_HOST = "pix.gerencianet.com.br";
 
 /** Certificado .p12 da Efí decodificado em memória (nunca gravado em disco) */
 function certBuffer(): Buffer {
@@ -23,22 +10,24 @@ function certBuffer(): Buffer {
 }
 
 interface EfiRequestOptions {
-  method?: string;
+  method: "GET" | "POST";
   path: string;
   body?: unknown;
   headers?: Record<string, string>;
 }
 
 /** Requisição mTLS para a API Pix da Efí */
-function efiRequest<T = any>(opts: EfiRequestOptions): Promise<{ status: number; data: T | null; raw: string }> {
-  const payload = opts.body ? JSON.stringify(opts.body) : null;
+function efiRequest<T = unknown>(
+  opts: EfiRequestOptions,
+): Promise<{ status: number; data: T | null; raw: string }> {
+  const payload = opts.body === undefined ? null : JSON.stringify(opts.body);
 
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
-        hostname: efiHost(),
+        hostname: EFI_PRODUCTION_HOST,
         port: 443,
-        method: opts.method ?? "GET",
+        method: opts.method,
         path: opts.path,
         pfx: certBuffer(),
         passphrase: "",
@@ -108,8 +97,8 @@ export interface EfiPixPayer {
 
 export interface EfiPixCharge {
   txid: string;
-  encodedImage: string;
-  payload: string;
+  qrcode: string;
+  imagemQrcode: string;
 }
 
 /** Cria uma cobrança Pix imediata e devolve o QR Code + copia e cola */
@@ -129,7 +118,8 @@ export async function createImmediatePixCharge(
       ? { cnpj: digits, nome: payer.name }
       : { cpf: digits, nome: payer.name };
 
-  const cob = await efiRequest<{ txid?: string; loc?: { id?: number } }>({
+  // Passo 1: cria a cobrança. Nunca usamos a propriedade loc.location.
+  const chargeResponse = await efiRequest<{ txid?: string; loc?: { id?: number } }>({
     method: "POST",
     path: "/v2/cob",
     headers: authHeader,
@@ -142,23 +132,31 @@ export async function createImmediatePixCharge(
     },
   });
 
-  if (cob.status >= 400 || !cob.data?.txid || !cob.data?.loc?.id) {
-    throw new Error(efiError(cob.raw, cob.data, "Falha ao criar a cobrança Pix"));
+  const locId = chargeResponse.data?.loc?.id;
+  if (chargeResponse.status >= 400 || !chargeResponse.data?.txid || !locId) {
+    throw new Error(
+      efiError(chargeResponse.raw, chargeResponse.data, "Falha ao criar a cobrança Pix"),
+    );
   }
 
-  const qr = await efiRequest<{ qrcode?: string; imagemQrcode?: string }>({
+  // Passo 2: o QR Code é obtido obrigatoriamente via GET usando somente loc.id.
+  const qrResponse = await efiRequest<{ qrcode?: string; imagemQrcode?: string }>({
     method: "GET",
-    path: `/v2/loc/${cob.data.loc.id}/qrcode`,
+    path: `/v2/loc/${locId}/qrcode`,
     headers: authHeader,
   });
 
-  if (qr.status >= 400 || !qr.data?.qrcode || !qr.data?.imagemQrcode) {
-    throw new Error(efiError(qr.raw, qr.data, "Falha ao gerar o QR Code Pix"));
+  if (
+    qrResponse.status >= 400 ||
+    !qrResponse.data?.qrcode ||
+    !qrResponse.data?.imagemQrcode
+  ) {
+    throw new Error(efiError(qrResponse.raw, qrResponse.data, "Falha ao gerar o QR Code Pix"));
   }
 
   return {
-    txid: cob.data.txid,
-    encodedImage: qr.data.imagemQrcode,
-    payload: qr.data.qrcode,
+    txid: chargeResponse.data.txid,
+    qrcode: qrResponse.data.qrcode,
+    imagemQrcode: qrResponse.data.imagemQrcode,
   };
 }
