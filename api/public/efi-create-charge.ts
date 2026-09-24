@@ -16,18 +16,25 @@ function certBuffer(): Buffer {
   return Buffer.from(base64, "base64");
 }
 
-interface EfiRequestOptions {
-  method: "GET" | "POST";
+type EfiRequestOptions = {
+  method: "GET";
+  path: string;
+  headers?: Record<string, string>;
+} | {
+  method: "POST";
   path: string;
   body?: unknown;
   headers?: Record<string, string>;
-}
+};
 
 /** Requisição mTLS para a API Pix da Efí */
 function efiRequest<T = unknown>(
   opts: EfiRequestOptions,
 ): Promise<{ status: number; data: T | null; raw: string }> {
-  const payload = opts.body === undefined ? null : JSON.stringify(opts.body);
+  // Requisições GET nunca recebem payload, evitando POST acidental no recurso loc.
+  const payload = opts.method === "POST" && opts.body !== undefined
+    ? JSON.stringify(opts.body)
+    : null;
 
   return new Promise((resolve, reject) => {
     const req = https.request(
@@ -143,13 +150,18 @@ async function createImmediatePixCharge(
   }
 
   // Passo 2: o QR Code é obtido obrigatoriamente via GET usando somente loc.id.
+  const qrPath = `/v2/loc/${encodeURIComponent(String(locId))}/qrcode`;
   const qrResponse = await efiRequest<{ qrcode?: string; imagemQrcode?: string }>({
     method: "GET",
-    path: `/v2/loc/${locId}/qrcode`,
+    path: qrPath,
     headers: authHeader,
   });
 
-  if (!qrResponse.data?.qrcode || !qrResponse.data?.imagemQrcode) {
+  if (
+    qrResponse.status >= 400 ||
+    !qrResponse.data?.qrcode ||
+    !qrResponse.data?.imagemQrcode
+  ) {
     throw new Error(efiError(qrResponse.raw, qrResponse.data, "Falha ao gerar o QR Code Pix"));
   }
 
