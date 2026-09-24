@@ -153,7 +153,7 @@ function CheckoutPage() {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      const res = await fetch("/api/public/efi-create-charge", {
+      const res = await fetch("/api/efi", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
