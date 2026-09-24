@@ -5,7 +5,7 @@ import https from "node:https";
 // Tudo embutido neste arquivo: nenhuma importação de fora da pasta /api,
 // garantindo que o bundle da Vercel encontre todos os módulos.
 
-const EFI_PRODUCTION_HOST = "pix.gerencianet.com.br";
+const EFI_PRODUCTION_HOST = "pix.efipay.com.br";
 const PLAN_VALUE = "97.00";
 const PLAN_DESCRIPTION = "Assinatura FranqOS - Gestão SaaS";
 
@@ -84,25 +84,54 @@ function efiError(raw: string, data: any, fallback: string): string {
   );
 }
 
+type EfiStep = "autenticacao" | "criacao_cobranca" | "geracao_qrcode";
+
+class EfiStepError extends Error {
+  step: EfiStep;
+  details: unknown;
+
+  constructor(step: EfiStep, error: unknown, details?: unknown) {
+    super(error instanceof Error ? error.message : String(error));
+    this.name = "EfiStepError";
+    this.step = step;
+    this.details = details ?? null;
+  }
+}
+
+function responseDetails(data: unknown, raw: string): unknown {
+  if (data !== null && data !== undefined) return data;
+  return raw ? raw.slice(0, 1000) : null;
+}
+
 /** OAuth2 client_credentials — {host}/oauth/token */
 async function getEfiAccessToken(): Promise<string> {
-  const clientId = (process.env.EFI_CLIENT_ID ?? "").trim();
-  const clientSecret = (process.env.EFI_CLIENT_SECRET ?? "").trim();
-  if (!clientId || !clientSecret)
-    throw new Error("EFI_CLIENT_ID/EFI_CLIENT_SECRET não configuradas");
+  try {
+    const clientId = (process.env.EFI_CLIENT_ID ?? "").trim();
+    const clientSecret = (process.env.EFI_CLIENT_SECRET ?? "").trim();
+    if (!clientId || !clientSecret) {
+      throw new Error("EFI_CLIENT_ID/EFI_CLIENT_SECRET não configuradas");
+    }
 
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-  const res = await efiRequest<{ access_token?: string }>({
-    method: "POST",
-    path: "/oauth/token",
-    body: { grant_type: "client_credentials" },
-    headers: { Authorization: `Basic ${basic}` },
-  });
+    const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const response = await efiRequest<{ access_token?: string }>({
+      method: "POST",
+      path: "/oauth/token",
+      body: { grant_type: "client_credentials" },
+      headers: { Authorization: `Basic ${basic}` },
+    });
 
-  if (res.status >= 400 || !res.data?.access_token) {
-    throw new Error(efiError(res.raw, res.data, "Falha na autenticação com a Efí"));
+    if (response.status >= 400 || !response.data?.access_token) {
+      throw new EfiStepError(
+        "autenticacao",
+        new Error(efiError(response.raw, response.data, "Falha na autenticação com a Efí")),
+        responseDetails(response.data, response.raw),
+      );
+    }
+    return response.data.access_token;
+  } catch (error) {
+    if (error instanceof EfiStepError) throw error;
+    throw new EfiStepError("autenticacao", error);
   }
-  return res.data.access_token;
 }
 
 interface EfiPixCharge {
@@ -120,7 +149,9 @@ async function createImmediatePixCharge(
   const token = await getEfiAccessToken();
   const authHeader = { Authorization: `Bearer ${token}` };
   const pixKey = (process.env.EFI_PIX_KEY ?? "").trim();
-  if (!pixKey) throw new Error("EFI_PIX_KEY não configurada");
+  if (!pixKey) {
+    throw new EfiStepError("criacao_cobranca", new Error("EFI_PIX_KEY não configurada"));
+  }
 
   const digits = payer.cpfCnpj.replace(/\D/g, "");
   const devedor =
@@ -129,44 +160,76 @@ async function createImmediatePixCharge(
       : { cpf: digits, nome: payer.name };
 
   // Passo 1: cria a cobrança. Nunca usamos a propriedade loc.location.
-  const chargeResponse = await efiRequest<{ txid?: string; loc?: { id?: number } }>({
-    method: "POST",
-    path: "/v2/cob",
-    headers: authHeader,
-    body: {
-      calendario: { expiracao: 3600 },
-      devedor,
-      valor: { original: valor },
-      chave: pixKey,
-      solicitacaoPagador: description,
-    },
-  });
+  let chargeResponse: {
+    status: number;
+    data: { txid?: string; loc?: { id?: number } } | null;
+    raw: string;
+  };
+  try {
+    chargeResponse = await efiRequest<{ txid?: string; loc?: { id?: number } }>({
+      method: "POST",
+      path: "/v2/cob",
+      headers: authHeader,
+      body: {
+        calendario: { expiracao: 3600 },
+        devedor,
+        valor: { original: valor },
+        chave: pixKey,
+        solicitacaoPagador: description,
+      },
+    });
+
+    const locId = chargeResponse.data?.loc?.id;
+    if (chargeResponse.status >= 400 || !chargeResponse.data?.txid || !locId) {
+      throw new EfiStepError(
+        "criacao_cobranca",
+        new Error(efiError(chargeResponse.raw, chargeResponse.data, "Falha ao criar a cobrança Pix")),
+        responseDetails(chargeResponse.data, chargeResponse.raw),
+      );
+    }
+  } catch (error) {
+    if (error instanceof EfiStepError) throw error;
+    throw new EfiStepError("criacao_cobranca", error);
+  }
 
   const locId = chargeResponse.data?.loc?.id;
-  if (chargeResponse.status >= 400 || !chargeResponse.data?.txid || !locId) {
-    throw new Error(
-      efiError(chargeResponse.raw, chargeResponse.data, "Falha ao criar a cobrança Pix"),
-    );
+  const txid = chargeResponse.data?.txid;
+  if (!locId || !txid) {
+    throw new EfiStepError("criacao_cobranca", new Error("Resposta da cobrança incompleta"));
   }
 
   // Passo 2: o QR Code é obtido obrigatoriamente via GET usando somente loc.id.
   const qrPath = `/v2/loc/${encodeURIComponent(String(locId))}/qrcode`;
-  const qrResponse = await efiRequest<{ qrcode?: string; imagemQrcode?: string }>({
-    method: "GET",
-    path: qrPath,
-    headers: authHeader,
-  });
+  let qrResponse: {
+    status: number;
+    data: { qrcode?: string; imagemQrcode?: string } | null;
+    raw: string;
+  };
+  try {
+    qrResponse = await efiRequest<{ qrcode?: string; imagemQrcode?: string }>({
+      method: "GET",
+      path: qrPath,
+      headers: authHeader,
+    });
 
-  if (
-    qrResponse.status >= 400 ||
-    !qrResponse.data?.qrcode ||
-    !qrResponse.data?.imagemQrcode
-  ) {
-    throw new Error(efiError(qrResponse.raw, qrResponse.data, "Falha ao gerar o QR Code Pix"));
+    if (
+      qrResponse.status >= 400 ||
+      !qrResponse.data?.qrcode ||
+      !qrResponse.data?.imagemQrcode
+    ) {
+      throw new EfiStepError(
+        "geracao_qrcode",
+        new Error(efiError(qrResponse.raw, qrResponse.data, "Falha ao gerar o QR Code Pix")),
+        responseDetails(qrResponse.data, qrResponse.raw),
+      );
+    }
+  } catch (error) {
+    if (error instanceof EfiStepError) throw error;
+    throw new EfiStepError("geracao_qrcode", error);
   }
 
   return {
-    txid: chargeResponse.data.txid,
+    txid,
     qrcode: qrResponse.data.qrcode,
     imagemQrcode: qrResponse.data.imagemQrcode,
   };
@@ -273,9 +336,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error("[vercel/efi-create-charge] erro:", error);
+    if (error instanceof EfiStepError) {
+      return res.status(400).json({
+        success: false,
+        step: error.step,
+        error: error.message,
+        details: error.details,
+      });
+    }
     return res.status(400).json({
       success: false,
+      step: "validacao",
       error: error instanceof Error ? error.message : "Erro interno do servidor",
+      details: null,
     });
   }
 }
