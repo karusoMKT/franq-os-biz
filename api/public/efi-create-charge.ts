@@ -5,7 +5,7 @@ import https from "node:https";
 // Tudo embutido neste arquivo: nenhuma importação de fora da pasta /api,
 // garantindo que o bundle da Vercel encontre todos os módulos.
 
-const EFI_PRODUCTION_HOST = "pix.efipay.com.br";
+const EFI_PRODUCTION_HOST = "pix.gerencianet.com.br";
 const PLAN_VALUE = "97.00";
 const PLAN_DESCRIPTION = "Assinatura FranqOS - Gestão SaaS";
 
