@@ -8,24 +8,6 @@ const PLAN_DESCRIPTION = "Assinatura FranqOS - Gestão SaaS";
 
 type EfiStep = "autenticacao" | "criacao_cobranca" | "geracao_qrcode";
 
-class EfiStepError extends Error {
-  step: EfiStep;
-  details: unknown;
-
-  constructor(step: EfiStep, error: unknown) {
-    const message = axios.isAxiosError(error)
-      ? extractEfiMessage(error.response?.data, error.message)
-      : error instanceof Error
-        ? error.message
-        : String(error);
-
-    super(message);
-    this.name = "EfiStepError";
-    this.step = step;
-    this.details = axios.isAxiosError(error) ? (error.response?.data ?? null) : null;
-  }
-}
-
 function extractEfiMessage(details: unknown, fallback: string): string {
   if (!details || typeof details !== "object") return fallback;
   const data = details as Record<string, unknown>;
@@ -61,32 +43,26 @@ interface QrCodeResponse {
 }
 
 async function authenticate(agent: https.Agent): Promise<string> {
-  try {
-    const clientId = (process.env.EFI_CLIENT_ID ?? "").trim();
-    const clientSecret = (process.env.EFI_CLIENT_SECRET ?? "").trim();
-    if (!clientId || !clientSecret) {
-      throw new Error("EFI_CLIENT_ID/EFI_CLIENT_SECRET não configuradas");
-    }
-
-    const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-    const response = await axios.post<TokenResponse>(
-      `${EFI_BASE_URL}/oauth/token`,
-      { grant_type: "client_credentials" },
-      {
-        httpsAgent: agent,
-        headers: {
-          Authorization: `Basic ${basic}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    if (!response.data.access_token) throw new Error("Token da Efí não retornado");
-    return response.data.access_token;
-  } catch (error) {
-    if (error instanceof EfiStepError) throw error;
-    throw new EfiStepError("autenticacao", error);
+  const clientId = (process.env.EFI_CLIENT_ID ?? "").trim();
+  const clientSecret = (process.env.EFI_CLIENT_SECRET ?? "").trim();
+  if (!clientId || !clientSecret) {
+    throw new Error("EFI_CLIENT_ID/EFI_CLIENT_SECRET não configuradas");
   }
+
+  const authBase64 = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const response = await axios<TokenResponse>({
+    method: "POST",
+    url: `${EFI_BASE_URL}/oauth/token`,
+    data: { grant_type: "client_credentials" },
+    headers: {
+      Authorization: `Basic ${authBase64}`,
+      "Content-Type": "application/json",
+    },
+    httpsAgent: agent,
+  });
+
+  if (!response.data.access_token) throw new Error("Token da Efí não retornado");
+  return response.data.access_token;
 }
 
 async function createCharge(
@@ -94,43 +70,37 @@ async function createCharge(
   token: string,
   payer: { name: string; cpfCnpj: string },
 ): Promise<{ txid: string; locId: number }> {
-  try {
-    const pixKey = (process.env.EFI_PIX_KEY ?? "").trim();
-    if (!pixKey) throw new Error("EFI_PIX_KEY não configurada");
+  const pixKey = (process.env.EFI_PIX_KEY ?? "").trim();
+  if (!pixKey) throw new Error("EFI_PIX_KEY não configurada");
 
-    const digits = payer.cpfCnpj.replace(/\D/g, "");
-    const devedor =
-      digits.length === 14
-        ? { cnpj: digits, nome: payer.name }
-        : { cpf: digits, nome: payer.name };
+  const digits = payer.cpfCnpj.replace(/\D/g, "");
+  const devedor =
+    digits.length === 14
+      ? { cnpj: digits, nome: payer.name }
+      : { cpf: digits, nome: payer.name };
 
-    const response = await axios.post<ChargeResponse>(
-      `${EFI_BASE_URL}/v2/cob`,
-      {
-        calendario: { expiracao: 3600 },
-        devedor,
-        valor: { original: PLAN_VALUE },
-        chave: pixKey,
-        solicitacaoPagador: PLAN_DESCRIPTION,
-      },
-      {
-        httpsAgent: agent,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
+  const response = await axios<ChargeResponse>({
+    method: "POST",
+    url: `${EFI_BASE_URL}/v2/cob`,
+    data: {
+      calendario: { expiracao: 3600 },
+      devedor,
+      valor: { original: PLAN_VALUE },
+      chave: pixKey,
+      solicitacaoPagador: PLAN_DESCRIPTION,
+    },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    httpsAgent: agent,
+  });
 
-    const locId = response.data.loc?.id;
-    const txid = response.data.txid;
-    if (!locId || !txid) throw new Error("Resposta da cobrança Pix incompleta");
+  const locId = response.data.loc?.id;
+  const txid = response.data.txid;
+  if (!locId || !txid) throw new Error("Resposta da cobrança Pix incompleta");
 
-    return { txid, locId };
-  } catch (error) {
-    if (error instanceof EfiStepError) throw error;
-    throw new EfiStepError("criacao_cobranca", error);
-  }
+  return { txid, locId };
 }
 
 async function generateQrCode(
@@ -138,23 +108,17 @@ async function generateQrCode(
   token: string,
   locId: number,
 ): Promise<{ qrcode: string; imagemQrcode: string }> {
-  try {
-    const response = await axios.get<QrCodeResponse>(
-      `${EFI_BASE_URL}/v2/loc/${encodeURIComponent(String(locId))}/qrcode`,
-      {
-        httpsAgent: agent,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
+  const response = await axios<QrCodeResponse>({
+    method: "GET",
+    url: `${EFI_BASE_URL}/v2/loc/${encodeURIComponent(String(locId))}/qrcode`,
+    headers: { Authorization: `Bearer ${token}` },
+    httpsAgent: agent,
+  });
 
-    const { qrcode, imagemQrcode } = response.data;
-    if (!qrcode || !imagemQrcode) throw new Error("Resposta do QR Code Pix incompleta");
+  const { qrcode, imagemQrcode } = response.data;
+  if (!qrcode || !imagemQrcode) throw new Error("Resposta do QR Code Pix incompleta");
 
-    return { qrcode, imagemQrcode };
-  } catch (error) {
-    if (error instanceof EfiStepError) throw error;
-    throw new EfiStepError("geracao_qrcode", error);
-  }
+  return { qrcode, imagemQrcode };
 }
 
 function bearerToken(authorization: string | string[] | undefined): string {
@@ -221,6 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  let step: EfiStep | "validacao" = "validacao";
+
   try {
     const body = parseBody(req.body);
     if (!body) {
@@ -244,8 +210,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const agent = createMtlsAgent();
+    step = "autenticacao";
     const token = await authenticate(agent);
+    step = "criacao_cobranca";
     const charge = await createCharge(agent, token, { name, cpfCnpj });
+    step = "geracao_qrcode";
     const qrCode = await generateQrCode(agent, token, charge.locId);
 
     await markPaymentPending(bearerToken(req.headers.authorization));
@@ -258,20 +227,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error("[vercel/efi] erro:", error);
-    if (error instanceof EfiStepError) {
+    if (axios.isAxiosError(error)) {
       return res.status(400).json({
         success: false,
-        step: error.step,
-        error: error.message,
-        details: error.details,
+        step,
+        error: extractEfiMessage(error.response?.data, error.message),
+        failedUrl: error.config?.url ?? null,
+        failedMethod: error.config?.method?.toUpperCase() ?? null,
+        efiResponse: error.response?.data ?? null,
       });
     }
 
     return res.status(400).json({
       success: false,
-      step: "validacao",
+      step,
       error: error instanceof Error ? error.message : "Erro interno do servidor",
-      details: null,
+      failedUrl: null,
+      failedMethod: null,
+      efiResponse: null,
     });
   }
 }
