@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
 import https from "node:https";
 
-const EFI_BASE_URL = "https://pix.gerencianet.com.br";
+const EFI_BASE_URL = "https://pix.api.efipay.com.br";
 const PLAN_VALUE = "97.00";
 const PLAN_DESCRIPTION = "Assinatura FranqOS - Gestão SaaS";
 
