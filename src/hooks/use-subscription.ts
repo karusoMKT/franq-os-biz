@@ -1,10 +1,16 @@
+import { useQuery } from "@tanstack/react-query";
 import { useProfile, type Profile } from "@/hooks/use-profile";
+import { supabase } from "@/integrations/supabase/client";
+import { computeSubscription, type CompanySubscription } from "@/lib/subscription";
+
+export { computeSubscription } from "@/lib/subscription";
 
 export const PLAN_PRICE_LABEL = "R$ 97/mês";
 
 export interface SubscriptionState {
   loading: boolean;
   profile: Profile | null;
+  company: CompanySubscription | null;
   status: string;
   isActive: boolean;
   isTrialing: boolean;
@@ -13,27 +19,23 @@ export interface SubscriptionState {
   hasAccess: boolean;
 }
 
-export function computeSubscription(profile: Profile | null): Omit<SubscriptionState, "loading" | "profile"> {
-  const status = profile?.subscription_status ?? "trialing";
-  const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
-  const isActive = status === "active";
-
-  // Dias restantes calculados dinamicamente a partir da data fixa no banco
-  const diffTime = trialEndsAt ? trialEndsAt.getTime() - Date.now() : 0;
-  const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-  return {
-    status,
-    isActive,
-    isTrialing: !isActive && daysRemaining > 0,
-    trialEndsAt,
-    daysLeft: daysRemaining,
-    hasAccess: isActive || daysRemaining > 0,
-  };
-}
-
-
 export function useSubscription(): SubscriptionState {
   const { profile, loading } = useProfile();
-  return { loading, profile, ...computeSubscription(profile) };
+  const companyId = profile?.company_id;
+  const query = useQuery({
+    queryKey: ["company-subscription", companyId],
+    enabled: Boolean(companyId),
+    queryFn: async (): Promise<CompanySubscription | null> => {
+      if (!companyId) return null;
+      const { data, error } = await supabase.from("companies")
+        .select("id,subscription_status,trial_ends_at,plan").eq("id", companyId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
+  const company = query.data ?? null;
+  return { loading: loading || (Boolean(companyId) && query.isPending), profile, company, ...computeSubscription(company) };
 }
