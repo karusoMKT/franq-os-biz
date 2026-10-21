@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import type { Profile } from "@/hooks/use-profile";
+import { PayableUnitSelect, usePayableUnits } from "@/components/payable-unit-select";
+import { requirePayableUnit } from "@/lib/payable-unit";
 
 const CATEGORIES = [
   "Operacional",
@@ -35,6 +37,7 @@ const CATEGORIES = [
 ];
 
 type FormState = {
+  unit_id: string;
   supplier_name: string;
   amount: string;
   due_date: string;
@@ -44,6 +47,7 @@ type FormState = {
 };
 
 const EMPTY_FORM: FormState = {
+  unit_id: "",
   supplier_name: "",
   amount: "",
   due_date: "",
@@ -56,12 +60,14 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const qc = useQueryClient();
+  const unitsQuery = usePayableUnits(profile.company_id);
 
   const reset = () => setForm(EMPTY_FORM);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!profile.company_id) throw new Error("Perfil sem empresa vinculada");
+      const unitId = requirePayableUnit(form.unit_id, unitsQuery.data ?? []);
       if (!form.supplier_name.trim()) throw new Error("Informe a descrição / fornecedor");
       const amountNum = Number(form.amount.replace(",", "."));
       if (!isFinite(amountNum) || amountNum <= 0) throw new Error("Valor inválido");
@@ -70,7 +76,7 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
       const { data: userData } = await supabase.auth.getUser();
       const { error } = await supabase.from("accounts_payable").insert({
         company_id: profile.company_id,
-        unit_id: profile.unit_id,
+        unit_id: unitId,
         supplier_name: form.supplier_name.trim(),
         amount: amountNum,
         due_date: form.due_date,
@@ -84,6 +90,7 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
     onSuccess: () => {
       toast.success("Conta cadastrada com sucesso!");
       qc.invalidateQueries({ queryKey: ["accounts_payable"] });
+      qc.invalidateQueries({ queryKey: ["available-months"] });
       setOpen(false);
       reset();
     },
@@ -111,7 +118,7 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
           if (!v) reset();
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova conta a pagar</DialogTitle>
             <DialogDescription>
@@ -120,6 +127,7 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
           </DialogHeader>
 
           <div className="space-y-3">
+            <PayableUnitSelect id="mp-unit" value={form.unit_id} onChange={(unit_id) => setForm((f) => ({ ...f, unit_id }))} query={unitsQuery} />
             <div className="space-y-1.5">
               <Label htmlFor="mp-supplier" className="flex items-center gap-1.5">
                 <Building2 size={14} /> Descrição / Fornecedor
@@ -206,7 +214,7 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
 
             <Button
               onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || unitsQuery.isPending || unitsQuery.isError}
               className="w-full"
             >
               {saveMutation.isPending ? (

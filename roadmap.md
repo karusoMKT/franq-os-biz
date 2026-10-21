@@ -1,9 +1,10 @@
-# Subscription correction
 # Accounts payable update
-- [ ] Require a unit in manual and AI payable entry.
-- [ ] Add payment and confirmed deletion actions to payable rows.
-- [ ] Run unit-selection tests and verify available UI flows.
+- [x] Require a unit in manual and AI payable entry; list all units within the company.
+- [x] Add payment and confirmed deletion actions to payable rows.
+- [x] Run three unit-selection tests; compilation passes and unauthenticated finance access redirects to auth without page errors.
+- [ ] Verify saving, payment and deletion signed in; external Supabase provides no authenticated test session.
 
+# Subscription correction
 - [x] Move entitlement and legacy paid data to existing companies.
 - [x] Make gates and banners use company status and shared trial.
 - [x] Associate Efí charges and confirmed payments with company.

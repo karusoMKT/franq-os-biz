@@ -54,7 +54,14 @@ import { BillScannerButton } from "@/components/bill-scanner-dialog";
 import { ManualPayableButton } from "@/components/manual-payable-dialog";
 
 export const Route = createFileRoute("/_authenticated/finance")({
-  head: () => ({ meta: [{ title: "Financeiro - FranqOS" }] }),
+  head: () => ({ meta: [
+    { title: "Financeiro - FranqOS" },
+    { name: "description", content: "Gerencie contas a pagar, receitas e despesas das unidades da sua empresa no FranqOS." },
+    { property: "og:title", content: "Financeiro - FranqOS" },
+    { property: "og:description", content: "Controle financeiro e contas a pagar por unidade no FranqOS." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: FinancePage,
   errorComponent: ({ error }: ErrorComponentProps) => (
     <div className="p-6 text-sm text-red-600">
@@ -722,6 +729,24 @@ function AccountsPayableSection({
 }) {
   const queryClient = useQueryClient();
   const rawList = query.data ?? [];
+  const [deleteTarget, setDeleteTarget] = useState<AccountPayable | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (item: AccountPayable) => {
+      if (!item.company_id) throw new Error("Conta sem empresa vinculada");
+      const { data, error } = await supabase.from("accounts_payable")
+        .delete().eq("id", item.id).eq("company_id", item.company_id).select("id").single();
+      if (error) throw error;
+      if (!data) throw new Error("Não foi possível excluir esta conta");
+    },
+    onSuccess: () => {
+      toast.success("Conta excluída com sucesso.");
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+      queryClient.invalidateQueries({ queryKey: ["available-months"] });
+    },
+    onError: (error: unknown) => toast.error(error instanceof Error ? error.message : "Erro ao excluir conta."),
+  });
 
   const list = useMemo(() => {
     const arr = [...rawList];
@@ -736,14 +761,19 @@ function AccountsPayableSection({
 
   const markPaidMutation = useMutation({
     mutationFn: async (item: AccountPayable) => {
-      const { error } = await supabase
+      if (!item.company_id) throw new Error("Conta sem empresa vinculada");
+      const { data, error } = await supabase
         .from("accounts_payable")
         .update({ status: "paid" })
-        .eq("id", item.id);
+        .eq("id", item.id)
+        .eq("company_id", item.company_id)
+        .or("status.is.null,status.neq.paid")
+        .select("id").maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error("Esta conta já foi paga ou não está mais disponível. Atualize a lista.");
 
       // Registra a baixa como despesa no fluxo de caixa
-      const unitId = item.unit_id ?? units[0]?.id ?? null;
+      const unitId = item.unit_id;
       if (unitId) {
         const { error: txError } = await supabase.from("transactions").insert({
           unit_id: unitId,
@@ -803,7 +833,7 @@ function AccountsPayableSection({
                 <TableHead className="text-right">Vencimento</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 {isOverview && <TableHead className="hidden sm:table-cell">Unidade</TableHead>}
-                <TableHead className="text-center w-[52px]">Ação</TableHead>
+                <TableHead className="text-center w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -844,18 +874,27 @@ function AccountsPayableSection({
                       </TableCell>
                     )}
                     <TableCell className="text-center">
+                      <div className="flex justify-center gap-1">
                       {!isPaid && (
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                          disabled={isPending}
+                          className="h-8 w-8 text-primary"
+                          disabled={markPaidMutation.isPending || deleteMutation.isPending}
                           onClick={() => markPaidMutation.mutate(item)}
                           title="Marcar como pago"
+                          aria-label={`Marcar como pago: ${item.supplier_name}`}
                         >
                           <Check size={16} />
                         </Button>
                       )}
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive"
+                        disabled={markPaidMutation.isPending || deleteMutation.isPending}
+                        title="Excluir conta" aria-label={`Excluir conta: ${item.supplier_name}`}
+                        onClick={() => setDeleteTarget(item)}>
+                        <Trash2 size={16} />
+                      </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -864,6 +903,24 @@ function AccountsPayableSection({
           </Table>
         </div>
       )}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteMutation.isPending) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja apagar esta conta? {deleteTarget?.supplier_name}. Esta ação não pode ser desfeita.
+              {deleteTarget?.status === "paid" && " A despesa já registrada no financeiro será mantida."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending}
+              onClick={(event) => { event.preventDefault(); if (deleteTarget) deleteMutation.mutate(deleteTarget); }}>
+              {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
