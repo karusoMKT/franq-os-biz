@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, type ErrorComponentProps } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert, Info } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
@@ -18,9 +18,9 @@ export const Route = createFileRoute("/_authenticated/occurrences")({
     ],
   }),
   component: OccurrencesPage,
-  errorComponent: ({ error }) => (
+  errorComponent: ({ error }: ErrorComponentProps) => (
     <div className="p-6 text-sm text-red-600" role="alert">
-      Erro ao carregar ocorrências: {error.message}
+      Erro ao carregar ocorrências: {error instanceof Error ? error.message : "Erro desconhecido."}
     </div>
   ),
 });

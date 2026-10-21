@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, type ErrorComponentProps } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, ClipboardList, FileText } from "lucide-react";
@@ -33,8 +33,10 @@ import {
 export const Route = createFileRoute("/_authenticated/audits")({
   head: () => ({ meta: [{ title: "Auditorias - FranqOS" }] }),
   component: AuditsPage,
-  errorComponent: ({ error }) => (
-    <div className="p-6 text-sm text-red-600">Erro: {error.message}</div>
+  errorComponent: ({ error }: ErrorComponentProps) => (
+    <div className="p-6 text-sm text-red-600">
+      Erro: {error instanceof Error ? error.message : "Erro desconhecido."}
+    </div>
   ),
 });
 
