@@ -360,21 +360,33 @@ export type Database = {
       companies: {
         Row: {
           created_at: string
+          efi_charges: Json
           id: string
           name: string
+          plan: string
           segment: string
+          subscription_status: string
+          trial_ends_at: string
         }
         Insert: {
           created_at?: string
+          efi_charges?: Json
           id?: string
           name: string
+          plan?: string
           segment: string
+          subscription_status?: string
+          trial_ends_at?: string
         }
         Update: {
           created_at?: string
+          efi_charges?: Json
           id?: string
           name?: string
+          plan?: string
           segment?: string
+          subscription_status?: string
+          trial_ends_at?: string
         }
         Relationships: []
       }
@@ -1224,6 +1236,10 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_company_efi_charge: {
+        Args: { p_txid: string }
+        Returns: undefined
+      }
       current_company_id: { Args: never; Returns: string }
       current_role: {
         Args: never
@@ -1275,6 +1291,10 @@ export type Database = {
       redeem_invite_code: {
         Args: { _code: string; _name?: string }
         Returns: Json
+      }
+      register_company_efi_charge: {
+        Args: { p_company_id: string; p_txid: string; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
