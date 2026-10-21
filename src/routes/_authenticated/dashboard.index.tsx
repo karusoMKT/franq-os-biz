@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/use-profile";
@@ -16,13 +16,13 @@ export const Route = createFileRoute("/_authenticated/dashboard/")({
   errorComponent: DashboardError,
 });
 
-function DashboardError({ error, reset }: { error: Error; reset: () => void }) {
+function DashboardError({ error, reset }: ErrorComponentProps) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle>Erro no Dashboard</CardTitle>
-          <CardDescription>{error?.message ?? "Falha desconhecida ao renderizar."}</CardDescription>
+          <CardDescription>{error instanceof Error ? error.message : "Falha desconhecida ao renderizar."}</CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">
           <Button onClick={reset}>Tentar novamente</Button>

@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, type ErrorComponentProps } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -33,9 +33,9 @@ import { useUnitContext } from "@/hooks/use-unit-context";
 export const Route = createFileRoute("/_authenticated/daily-checklists")({
   head: () => ({ meta: [{ title: "Rotina Diária - FranqOS" }] }),
   component: DailyChecklistsPage,
-  errorComponent: ({ error }) => (
+  errorComponent: ({ error }: ErrorComponentProps) => (
     <div className="p-6 text-sm text-red-600" role="alert">
-      Erro ao carregar rotina diária: {error.message}
+      Erro ao carregar rotina diária: {error instanceof Error ? error.message : "Erro desconhecido."}
     </div>
   ),
 });

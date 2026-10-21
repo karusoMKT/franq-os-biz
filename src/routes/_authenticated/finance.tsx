@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, type ErrorComponentProps } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, TrendingUp, TrendingDown, Wallet, Percent, Trash2, Repeat, Star, Check } from "lucide-react";
@@ -51,12 +51,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loading } from "@/components/loading";
 import { BillScannerButton } from "@/components/bill-scanner-dialog";
+import { ManualPayableButton } from "@/components/manual-payable-dialog";
 
 export const Route = createFileRoute("/_authenticated/finance")({
   head: () => ({ meta: [{ title: "Financeiro - FranqOS" }] }),
   component: FinancePage,
-  errorComponent: ({ error }) => (
-    <div className="p-6 text-sm text-red-600">Erro: {error.message}</div>
+  errorComponent: ({ error }: ErrorComponentProps) => (
+    <div className="p-6 text-sm text-red-600">
+      Erro: {error instanceof Error ? error.message : "Erro desconhecido."}
+    </div>
   ),
 });
 
@@ -375,7 +378,10 @@ function FinancePage() {
         </Select>
       </div>
 
-      <BillScannerButton profile={profile} />
+      <div className="grid grid-cols-2 gap-3">
+        <BillScannerButton profile={profile} />
+        <ManualPayableButton profile={profile} />
+      </div>
 
       <AccountsPayableSection
         query={accountsPayableQuery}
