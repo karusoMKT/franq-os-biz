@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check, Copy, CreditCard, Loader2, QrCode, Smartphone } from "lucide-react";
+import { Check, Copy, CreditCard, Loader2, LogOut, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FranqosLogo } from "@/components/franqos-logo";
 import { supabase } from "@/integrations/supabase/client";
+import { fullSignOut } from "@/lib/auth-utils";
 import { useSubscription, PLAN_PRICE_LABEL } from "@/hooks/use-subscription";
 
 interface PixData {
@@ -117,6 +118,8 @@ function CheckoutPage() {
   const { isTrialing, daysLeft, hasAccess, isActive, profile } = useSubscription();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [billingType, setBillingType] = useState<BillingType>("PIX");
   const [pixData, setPixData] = useState<PixData | null>(null);
 
@@ -137,6 +140,19 @@ function CheckoutPage() {
     if (profile.email) setValue("email", profile.email);
   }, [profile, setValue]);
 
+  useEffect(() => {
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) setHasSession(Boolean(data.session));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const copyPix = async () => {
     if (!pixData) return;
     try {
@@ -144,6 +160,22 @@ function CheckoutPage() {
       toast.success("Código Pix copiado!");
     } catch {
       toast.error("Não foi possível copiar. Selecione o código manualmente.");
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await fullSignOut();
+      setPixData(null);
+      setHasSession(false);
+      toast.success("Você saiu da sua conta.");
+      await navigate({ to: "/auth", replace: true });
+    } catch (err) {
+      console.error("[checkout] erro ao sair:", err);
+      toast.error("Não foi possível sair. Tente novamente.");
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -384,6 +416,23 @@ function CheckoutPage() {
                 automaticamente.
               </p>
             </form>
+
+            {(hasSession || Boolean(profile)) && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-muted-foreground underline-offset-4 hover:underline"
+                disabled={signingOut}
+                onClick={handleSignOut}
+              >
+                {signingOut ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="mr-2 h-4 w-4" />
+                )}
+                Entrar com outra conta
+              </Button>
+            )}
               </>
             )}
 
