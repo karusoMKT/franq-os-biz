@@ -152,6 +152,9 @@ function CheckoutPage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+      if (!token || !profile?.company_id) {
+        throw new Error("Entre na sua conta e vincule-se a uma empresa antes de pagar.");
+      }
 
       const res = await fetch("/api/efi", {
         method: "POST",
@@ -164,6 +167,7 @@ function CheckoutPage() {
           email: form.email.trim(),
           cpfCnpj: onlyNumbers(form.cpfCnpj),
           phone: onlyNumbers(form.phone),
+          company_id: profile.company_id,
         }),
       });
 

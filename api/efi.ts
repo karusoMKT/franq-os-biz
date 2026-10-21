@@ -15,7 +15,7 @@ function extractEfiMessage(details: unknown, fallback: string): string {
   return typeof message === "string" ? message : fallback;
 }
 
-function createMtlsAgent(): https.Agent {
+export function createMtlsAgent(): https.Agent {
   const certBase64 = (process.env.EFI_CERT_BASE64 ?? "").replace(/[\r\n\s]/g, "");
   if (!certBase64) throw new Error("EFI_CERT_BASE64 não configurada");
 
@@ -42,7 +42,7 @@ interface QrCodeResponse {
   imagemQrcode?: string;
 }
 
-async function authenticate(agent: https.Agent): Promise<string> {
+export async function authenticate(agent: https.Agent): Promise<string> {
   const clientId = (process.env.EFI_CLIENT_ID ?? "").trim();
   const clientSecret = (process.env.EFI_CLIENT_SECRET ?? "").trim();
   if (!clientId || !clientSecret) {
@@ -69,6 +69,7 @@ async function createCharge(
   agent: https.Agent,
   token: string,
   payer: { name: string; cpfCnpj: string },
+  companyId: string,
 ): Promise<{ txid: string; locId: number }> {
   const pixKey = (process.env.EFI_PIX_KEY ?? "").trim();
   if (!pixKey) throw new Error("EFI_PIX_KEY não configurada");
@@ -88,6 +89,7 @@ async function createCharge(
       valor: { original: PLAN_VALUE },
       chave: pixKey,
       solicitacaoPagador: PLAN_DESCRIPTION,
+      infoAdicionais: [{ nome: "company_id", valor: companyId }],
     },
     headers: {
       Authorization: `Bearer ${token}`,
@@ -126,35 +128,50 @@ function bearerToken(authorization: string | string[] | undefined): string {
   return (header ?? "").replace(/^Bearer\s+/i, "").trim();
 }
 
-async function markPaymentPending(token: string): Promise<void> {
-  if (!token) return;
-
+export async function supabaseRequest(path: string, init: RequestInit = {}) {
   const supabaseUrl = (process.env.SUPABASE_URL ?? "").replace(/\/$/, "");
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return;
+  if (!supabaseUrl || !serviceKey) throw new Error("Configuração de pagamentos indisponível");
+  const response = await fetch(`${supabaseUrl}${path}`, {
+    ...init,
+    headers: {
+      apikey: serviceKey,
+      ...(serviceKey.startsWith("sb_") ? {} : { Authorization: `Bearer ${serviceKey}` }),
+      "Content-Type": "application/json",
+      ...init.headers,
+    },
+  });
+  if (!response.ok) throw new Error("Não foi possível vincular o pagamento à empresa");
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
 
-  try {
-    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: serviceKey },
-    });
-    if (!userResponse.ok) return;
+async function resolveCompany(token: string): Promise<{ userId: string; companyId: string }> {
+  if (!token) throw new Error("Entre na sua conta antes de pagar");
+  const user = await supabaseRequest("/auth/v1/user", { headers: { Authorization: `Bearer ${token}` } });
+  if (typeof user?.id !== "string") throw new Error("Sessão inválida");
+  const profiles = await supabaseRequest(`/rest/v1/profiles?select=company_id&user_id=eq.${encodeURIComponent(user.id)}`);
+  const companyId = profiles?.[0]?.company_id;
+  if (typeof companyId !== "string") throw new Error("Vincule-se a uma empresa antes de pagar");
+  return { userId: user.id, companyId };
+}
 
-    const user: unknown = await userResponse.json();
-    if (!user || typeof user !== "object" || !("id" in user) || typeof user.id !== "string") return;
-
-    await fetch(`${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(user.id)}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({ subscription_status: "pending_payment" }),
-    });
-  } catch (error) {
-    console.error("[vercel/efi] falha ao atualizar perfil:", error);
-  }
+export async function verifyAndConfirmPayment(txid: string, agent: https.Agent, token: string): Promise<boolean> {
+  const companies = await supabaseRequest(`/rest/v1/companies?select=id&efi_charges=cs.${encodeURIComponent(JSON.stringify({ [txid]: {} }))}`);
+  if (!Array.isArray(companies) || companies.length !== 1) return false;
+  const response = await axios({
+    method: "GET", url: `${EFI_BASE_URL}/v2/cob/${encodeURIComponent(txid)}`,
+    headers: { Authorization: `Bearer ${token}` }, httpsAgent: agent,
+  });
+  const charge = response.data;
+  const totalReceived = Array.isArray(charge?.pix)
+    ? charge.pix.reduce((total: number, payment: { valor?: string }) => total + Math.round(Number(payment.valor) * 100), 0)
+    : 0;
+  if (charge?.txid !== txid || charge?.status !== "CONCLUIDA" || Number(charge?.valor?.original) !== 97 || totalReceived < 9700) return false;
+  await supabaseRequest("/rest/v1/rpc/confirm_company_efi_charge", {
+    method: "POST", body: JSON.stringify({ p_txid: txid }),
+  });
+  return true;
 }
 
 const onlyNumbers = (value: unknown): string =>
@@ -209,15 +226,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ success: false, error: "CPF deve ter 11 dígitos ou CNPJ 14 dígitos." });
     }
 
+    const membership = await resolveCompany(bearerToken(req.headers.authorization));
+    if (body.company_id && body.company_id !== membership.companyId) {
+      return res.status(403).json({ success: false, error: "Empresa não autorizada" });
+    }
     const agent = createMtlsAgent();
     step = "autenticacao";
     const token = await authenticate(agent);
     step = "criacao_cobranca";
-    const charge = await createCharge(agent, token, { name, cpfCnpj });
+    const charge = await createCharge(agent, token, { name, cpfCnpj }, membership.companyId);
+    await supabaseRequest("/rest/v1/rpc/register_company_efi_charge", {
+      method: "POST", body: JSON.stringify({ p_company_id: membership.companyId, p_user_id: membership.userId, p_txid: charge.txid }),
+    });
     step = "geracao_qrcode";
     const qrCode = await generateQrCode(agent, token, charge.locId);
-
-    await markPaymentPending(bearerToken(req.headers.authorization));
 
     return res.status(200).json({
       success: true,
@@ -226,7 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       txid: charge.txid,
     });
   } catch (error) {
-    console.error("[vercel/efi] erro:", error);
+    console.error("[vercel/efi] falha na etapa", step);
     if (axios.isAxiosError(error)) {
       return res.status(400).json({
         success: false,
