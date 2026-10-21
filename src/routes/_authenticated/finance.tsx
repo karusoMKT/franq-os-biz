@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loading } from "@/components/loading";
 import { BillScannerButton } from "@/components/bill-scanner-dialog";
+import { ManualPayableButton } from "@/components/manual-payable-dialog";
 
 export const Route = createFileRoute("/_authenticated/finance")({
   head: () => ({ meta: [{ title: "Financeiro - FranqOS" }] }),
@@ -375,7 +376,10 @@ function FinancePage() {
         </Select>
       </div>
 
-      <BillScannerButton profile={profile} />
+      <div className="grid grid-cols-2 gap-3">
+        <BillScannerButton profile={profile} />
+        <ManualPayableButton profile={profile} />
+      </div>
 
       <AccountsPayableSection
         query={accountsPayableQuery}
