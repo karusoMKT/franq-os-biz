@@ -1,4 +1,9 @@
 # Subscription correction
+# Accounts payable update
+- [ ] Require a unit in manual and AI payable entry.
+- [ ] Add payment and confirmed deletion actions to payable rows.
+- [ ] Run unit-selection tests and verify available UI flows.
+
 - [x] Move entitlement and legacy paid data to existing companies.
 - [x] Make gates and banners use company status and shared trial.
 - [x] Associate Efí charges and confirmed payments with company.
