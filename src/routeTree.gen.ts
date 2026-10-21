@@ -9,53 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as CheckoutRouteImport } from './routes/checkout'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
-import { Route as AuthenticatedOccurrencesRouteImport } from './routes/_authenticated/occurrences'
-import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
-import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_authenticated/daily-checklists'
-import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthenticatedAuditsRouteImport } from './routes/_authenticated/audits'
+import { Route as AuthenticatedChecklistsRouteImport } from './routes/_authenticated/checklists'
+import { Route as AuthenticatedDailyChecklistsRouteImport } from './routes/_authenticated/daily-checklists'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedOccurrencesRouteImport } from './routes/_authenticated/occurrences'
+import { Route as AuthenticatedPopsRouteImport } from './routes/_authenticated/pops'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
-import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
-import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
-import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard.manager'
 import { Route as AuthenticatedDashboardEmployeeRouteImport } from './routes/_authenticated/dashboard.employee'
+import { Route as AuthenticatedDashboardManagerRouteImport } from './routes/_authenticated/dashboard.manager'
+import { Route as AuthenticatedDashboardOwnerRouteImport } from './routes/_authenticated/dashboard.owner'
+import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -63,50 +47,39 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAuditsRoute = AuthenticatedAuditsRouteImport.update({
+  id: '/audits',
+  path: '/audits',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPopsRoute = AuthenticatedPopsRouteImport.update({
-  id: '/pops',
-  path: '/pops',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedOccurrencesRoute =
-  AuthenticatedOccurrencesRouteImport.update({
-    id: '/occurrences',
-    path: '/occurrences',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedNotificationsRoute =
-  AuthenticatedNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
-  id: '/finance',
-  path: '/finance',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedChecklistsRoute = AuthenticatedChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDailyChecklistsRoute =
@@ -115,14 +88,41 @@ const AuthenticatedDailyChecklistsRoute =
     path: '/daily-checklists',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedChecklistsRoute = AuthenticatedChecklistsRouteImport.update({
-  id: '/checklists',
-  path: '/checklists',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAuditsRoute = AuthenticatedAuditsRouteImport.update({
-  id: '/audits',
-  path: '/audits',
+const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOccurrencesRoute =
+  AuthenticatedOccurrencesRouteImport.update({
+    id: '/occurrences',
+    path: '/occurrences',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPopsRoute = AuthenticatedPopsRouteImport.update({
+  id: '/pops',
+  path: '/pops',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardIndexRoute =
@@ -131,16 +131,10 @@ const AuthenticatedDashboardIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const ApiPublicWhatsappWebhookRoute =
-  ApiPublicWhatsappWebhookRouteImport.update({
-    id: '/api/public/whatsapp-webhook',
-    path: '/api/public/whatsapp-webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AuthenticatedDashboardOwnerRoute =
-  AuthenticatedDashboardOwnerRouteImport.update({
-    id: '/owner',
-    path: '/owner',
+const AuthenticatedDashboardEmployeeRoute =
+  AuthenticatedDashboardEmployeeRouteImport.update({
+    id: '/employee',
+    path: '/employee',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
 const AuthenticatedDashboardManagerRoute =
@@ -149,11 +143,17 @@ const AuthenticatedDashboardManagerRoute =
     path: '/manager',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const AuthenticatedDashboardEmployeeRoute =
-  AuthenticatedDashboardEmployeeRouteImport.update({
-    id: '/employee',
-    path: '/employee',
+const AuthenticatedDashboardOwnerRoute =
+  AuthenticatedDashboardOwnerRouteImport.update({
+    id: '/owner',
+    path: '/owner',
     getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const ApiPublicWhatsappWebhookRoute =
+  ApiPublicWhatsappWebhookRouteImport.update({
+    id: '/api/public/whatsapp-webhook',
+    path: '/api/public/whatsapp-webhook',
+    getParentRoute: () => rootRouteImport,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -318,46 +318,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -367,67 +332,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/team': {
-      id: '/_authenticated/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof AuthenticatedTeamRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/pops': {
-      id: '/_authenticated/pops'
-      path: '/pops'
-      fullPath: '/pops'
-      preLoaderRoute: typeof AuthenticatedPopsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/occurrences': {
-      id: '/_authenticated/occurrences'
-      path: '/occurrences'
-      fullPath: '/occurrences'
-      preLoaderRoute: typeof AuthenticatedOccurrencesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/notifications': {
-      id: '/_authenticated/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/finance': {
-      id: '/_authenticated/finance'
-      path: '/finance'
-      fullPath: '/finance'
-      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/daily-checklists': {
-      id: '/_authenticated/daily-checklists'
-      path: '/daily-checklists'
-      fullPath: '/daily-checklists'
-      preLoaderRoute: typeof AuthenticatedDailyChecklistsRouteImport
+    '/_authenticated/audits': {
+      id: '/_authenticated/audits'
+      path: '/audits'
+      fullPath: '/audits'
+      preLoaderRoute: typeof AuthenticatedAuditsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/checklists': {
@@ -437,11 +388,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/audits': {
-      id: '/_authenticated/audits'
-      path: '/audits'
-      fullPath: '/audits'
-      preLoaderRoute: typeof AuthenticatedAuditsRouteImport
+    '/_authenticated/daily-checklists': {
+      id: '/_authenticated/daily-checklists'
+      path: '/daily-checklists'
+      fullPath: '/daily-checklists'
+      preLoaderRoute: typeof AuthenticatedDailyChecklistsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/finance': {
+      id: '/_authenticated/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/occurrences': {
+      id: '/_authenticated/occurrences'
+      path: '/occurrences'
+      fullPath: '/occurrences'
+      preLoaderRoute: typeof AuthenticatedOccurrencesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pops': {
+      id: '/_authenticated/pops'
+      path: '/pops'
+      fullPath: '/pops'
+      preLoaderRoute: typeof AuthenticatedPopsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard/': {
@@ -451,18 +451,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/api/public/whatsapp-webhook': {
-      id: '/api/public/whatsapp-webhook'
-      path: '/api/public/whatsapp-webhook'
-      fullPath: '/api/public/whatsapp-webhook'
-      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/dashboard/owner': {
-      id: '/_authenticated/dashboard/owner'
-      path: '/owner'
-      fullPath: '/dashboard/owner'
-      preLoaderRoute: typeof AuthenticatedDashboardOwnerRouteImport
+    '/_authenticated/dashboard/employee': {
+      id: '/_authenticated/dashboard/employee'
+      path: '/employee'
+      fullPath: '/dashboard/employee'
+      preLoaderRoute: typeof AuthenticatedDashboardEmployeeRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/dashboard/manager': {
@@ -472,12 +465,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardManagerRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/_authenticated/dashboard/employee': {
-      id: '/_authenticated/dashboard/employee'
-      path: '/employee'
-      fullPath: '/dashboard/employee'
-      preLoaderRoute: typeof AuthenticatedDashboardEmployeeRouteImport
+    '/_authenticated/dashboard/owner': {
+      id: '/_authenticated/dashboard/owner'
+      path: '/owner'
+      fullPath: '/dashboard/owner'
+      preLoaderRoute: typeof AuthenticatedDashboardOwnerRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/api/public/whatsapp-webhook': {
+      id: '/api/public/whatsapp-webhook'
+      path: '/api/public/whatsapp-webhook'
+      fullPath: '/api/public/whatsapp-webhook'
+      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
