@@ -17,11 +17,13 @@ export type Database = {
       accounts_payable: {
         Row: {
           amount: number
+          category: string | null
           company_id: string | null
           created_at: string | null
           created_by: string | null
           due_date: string
           id: string
+          notes: string | null
           receipt_url: string | null
           status: string | null
           supplier_name: string
@@ -29,11 +31,13 @@ export type Database = {
         }
         Insert: {
           amount: number
+          category?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
           due_date: string
           id?: string
+          notes?: string | null
           receipt_url?: string | null
           status?: string | null
           supplier_name: string
@@ -41,11 +45,13 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
           due_date?: string
           id?: string
+          notes?: string | null
           receipt_url?: string | null
           status?: string | null
           supplier_name?: string
