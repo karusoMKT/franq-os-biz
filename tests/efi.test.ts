@@ -13,7 +13,7 @@ const axiosMock = Object.assign(async (config: Record<string, any>) => {
   return { data: { txid, status: "CONCLUIDA", valor: { original: "97.00" }, pix: [{ valor: received }] } };
 }, { isAxiosError: () => false });
 mock.module("axios", () => ({ default: axiosMock }));
-const { default: handler, createMtlsAgent, verifyAndConfirmPayment } = await import("./efi");
+const { default: handler, createMtlsAgent, verifyAndConfirmPayment } = await import("../api/efi");
 const originalFetch = globalThis.fetch;
 const names = ["EFI_CERT_BASE64", "EFI_CLIENT_ID", "EFI_CLIENT_SECRET", "EFI_PIX_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 const originalEnv = Object.fromEntries(names.map(name => [name, process.env[name]]));
