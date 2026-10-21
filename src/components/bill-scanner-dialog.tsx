@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import type { Profile } from "@/hooks/use-profile";
+import { PayableUnitSelect, usePayableUnits } from "@/components/payable-unit-select";
+import { requirePayableUnit } from "@/lib/payable-unit";
 
 type OcrBillResult = {
   supplier_name: string | null;
@@ -100,8 +102,8 @@ async function ocrBillClient(
 
 
 
-type FormState = { supplier_name: string; amount: string; due_date: string };
-const EMPTY_FORM: FormState = { supplier_name: "", amount: "", due_date: "" };
+type FormState = { unit_id: string; supplier_name: string; amount: string; due_date: string };
+const EMPTY_FORM: FormState = { unit_id: "", supplier_name: "", amount: "", due_date: "" };
 
 function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
   return new Promise((resolve, reject) => {
@@ -124,6 +126,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const qc = useQueryClient();
+  const unitsQuery = usePayableUnits(profile.company_id);
 
   const reset = () => {
     setForm(EMPTY_FORM);
@@ -140,6 +143,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
       const { base64, mimeType } = await fileToBase64(file);
       const result = await ocrBillClient(base64, mimeType);
       setForm({
+        unit_id: "",
         supplier_name: result.supplier_name ?? "",
         amount: result.amount != null ? String(result.amount) : "",
         due_date: result.due_date ?? "",
@@ -154,6 +158,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!profile.company_id) throw new Error("Perfil sem empresa vinculada");
+      const unitId = requirePayableUnit(form.unit_id, unitsQuery.data ?? []);
       if (!form.supplier_name.trim()) throw new Error("Informe o fornecedor");
       const amountNum = Number(form.amount.replace(",", "."));
       if (!isFinite(amountNum) || amountNum <= 0) throw new Error("Valor inválido");
@@ -162,7 +167,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
       const { data: userData } = await supabase.auth.getUser();
       const { error } = await supabase.from("accounts_payable").insert({
         company_id: profile.company_id,
-        unit_id: profile.unit_id,
+        unit_id: unitId,
         supplier_name: form.supplier_name.trim(),
         amount: amountNum,
         due_date: form.due_date,
@@ -174,6 +179,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
     onSuccess: () => {
       toast.success("Conta salva com sucesso!");
       qc.invalidateQueries({ queryKey: ["accounts_payable"] });
+      qc.invalidateQueries({ queryKey: ["available-months"] });
       setOpen(false);
       reset();
     },
@@ -211,7 +217,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
           if (!v) reset();
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo boleto</DialogTitle>
             <DialogDescription>
@@ -234,6 +240,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
             </div>
           ) : (
             <div className="space-y-3">
+              <PayableUnitSelect id="scan-unit" value={form.unit_id} onChange={(unit_id) => setForm((f) => ({ ...f, unit_id }))} query={unitsQuery} />
               <div className="space-y-1.5">
                 <Label htmlFor="supplier" className="flex items-center gap-1.5">
                   <Building2 size={14} /> Fornecedor
@@ -284,7 +291,7 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
                 </Button>
                 <Button
                   onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
+                  disabled={saveMutation.isPending || unitsQuery.isPending || unitsQuery.isError}
                   className="flex-1"
                 >
                   {saveMutation.isPending ? (
