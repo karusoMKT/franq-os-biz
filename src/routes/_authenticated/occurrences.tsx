@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert, Info } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
+import { occurrencesRecentCutoffIso } from "@/lib/occurrence-retention";
+import { OccurrenceDeleteButton } from "@/components/occurrence-delete-button";
 import { MobileShell } from "@/components/mobile-shell";
 import { Loading } from "@/components/loading";
 import { Card } from "@/components/ui/card";
@@ -69,6 +71,7 @@ function OccurrencesPage() {
         .from("occurrences")
         .select("id,unit_id,company_id,title,description,severity,status,routine_type,created_at")
         .eq("company_id", companyId!)
+        .gte("created_at", occurrencesRecentCutoffIso())
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -120,7 +123,10 @@ function OccurrencesPage() {
                       </div>
                     </div>
                   </div>
-                  <SeverityBadge severity={o.severity} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <SeverityBadge severity={o.severity} />
+                    <OccurrenceDeleteButton occurrence={o} />
+                  </div>
                 </div>
                 {o.description && (
                   <p className="text-xs text-muted-foreground">{o.description}</p>
