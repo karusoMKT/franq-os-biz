@@ -349,9 +349,12 @@ function OwnerDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-sm font-semibold truncate">{o.title}</div>
-                          <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full shrink-0 ${badge}`}>
-                            {o.severity}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`text-[10px] uppercase px-2 py-0.5 rounded-full ${badge}`}>
+                              {o.severity}
+                            </span>
+                            <OccurrenceDeleteButton occurrence={o} />
+                          </div>
                         </div>
                         {o.description && (
                           <div className="text-xs text-foreground/80 mt-0.5 line-clamp-2">{o.description}</div>
