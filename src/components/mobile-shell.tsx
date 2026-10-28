@@ -26,18 +26,18 @@ export function MobileShell({
     <div className="min-h-screen bg-[oklch(0.98_0.01_240)] pb-24">
       <header className="bg-white border-b sticky top-0 z-30">
         <TrialBanner />
-        <div className="mx-auto max-w-md flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <FranqosLogo className="h-9 w-9 rounded-md" />
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">{title}</div>
-              {subtitle && <div className="text-[11px] text-muted-foreground">{subtitle}</div>}
+        <div className="mx-auto max-w-md grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <FranqosLogo className="h-9 w-9 shrink-0 rounded-md" />
+            <div className="leading-tight min-w-0">
+              <div className="text-sm font-semibold truncate">{title}</div>
+              {subtitle && <div className="text-[11px] text-muted-foreground truncate">{subtitle}</div>}
             </div>
           </div>
           {canSeeBellPopover ? (
             <NotificationsBell profile={profile} />
           ) : (
-            <Link to="/notifications" className="relative p-2 text-muted-foreground" aria-label="Avisos">
+            <Link to="/notifications" className="relative p-2 text-muted-foreground shrink-0" aria-label="Avisos">
               <Bell size={20} />
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">

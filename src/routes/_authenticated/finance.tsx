@@ -368,10 +368,10 @@ function FinancePage() {
       title="Financeiro"
       subtitle={isOverview ? "Visão geral da rede" : selectedUnit?.name ?? "Unidade"}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">Período</span>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">Período</span>
         <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="w-[180px] h-9">
+          <SelectTrigger className="w-full h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-72">
@@ -385,7 +385,7 @@ function FinancePage() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex flex-col gap-2">
         <BillScannerButton profile={profile} />
         <ManualPayableButton profile={profile} />
       </div>

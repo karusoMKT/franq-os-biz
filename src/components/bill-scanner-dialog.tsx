@@ -204,9 +204,9 @@ export function BillScannerButton({ profile }: { profile: Profile }) {
       <Button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="w-full h-14 bg-[color:var(--franqos-blue)] hover:bg-[color:var(--franqos-blue)]/90"
+        className="w-full h-11 px-3 text-sm bg-[color:var(--franqos-blue)] hover:bg-[color:var(--franqos-blue)]/90"
       >
-        <Camera size={20} className="mr-2" />
+        <Camera size={18} />
         Escanear Boleto / Conta
       </Button>
 

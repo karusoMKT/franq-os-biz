@@ -105,9 +105,9 @@ export function ManualPayableButton({ profile }: { profile: Profile }) {
         type="button"
         variant="outline"
         onClick={() => setOpen(true)}
-        className="w-full h-14"
+        className="w-full h-11 px-3 text-sm"
       >
-        <Plus size={20} className="mr-2" />
+        <Plus size={18} />
         Nova Conta a Pagar
       </Button>
 
