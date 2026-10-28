@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+const FALLBACK_VAPID_PUBLIC_KEY =
+  "BOA_lr117vg8J7_yvcAUMPY3QEfD7_cyq9-x5YxLlpshxp2CRCVAnbN5yMZvYPHmGsI0N9DRNUkj2HXkDoUBjZY";
+
+export function getVapidPublicKey() {
+  const env = import.meta.env as Record<string, string | undefined>;
+  return env.VAPID_PUBLIC_KEY || env.VITE_VAPID_PUBLIC_KEY || FALLBACK_VAPID_PUBLIC_KEY;
+}
 
 export function pushSupported() {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
@@ -14,13 +20,13 @@ function urlBase64ToUint8Array(base64: string) {
 
 export async function enablePush(userId: string, companyId: string | null) {
   if (!pushSupported()) throw new Error("Este navegador não suporta notificações. No iPhone, adicione o app à Tela de Início primeiro.");
-  if (!VAPID_PUBLIC_KEY) throw new Error("Notificações ainda não configuradas (chave pública ausente).");
+  const vapidPublicKey = getVapidPublicKey();
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Permissão de notificações negada.");
   const reg = await navigator.serviceWorker.register("/push-sw.js", { scope: "/push/" });
   await navigator.serviceWorker.ready.catch(() => undefined);
   const sub = (await reg.pushManager.getSubscription()) ??
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) }));
+    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) }));
   const json = sub.toJSON();
   const { error } = await supabase.from("push_subscriptions" as never).upsert(
     {
