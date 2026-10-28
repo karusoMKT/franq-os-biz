@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check, Copy, CreditCard, Loader2, LogOut, QrCode, Smartphone } from "lucide-react";
+import { Check, Copy, Loader2, LogOut, QrCode, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -53,8 +53,6 @@ const BENEFITS = [
   "Notificações em tempo real e assistente no WhatsApp",
   "Unidades e usuários ilimitados",
 ];
-
-type BillingType = "PIX" | "CREDIT_CARD";
 
 const onlyNumbers = (value: string) => value.replace(/\D/g, "");
 
@@ -120,7 +118,6 @@ function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [hasSession, setHasSession] = useState(false);
-  const [billingType, setBillingType] = useState<BillingType>("PIX");
   const [pixData, setPixData] = useState<PixData | null>(null);
 
   const {
@@ -299,27 +296,9 @@ function CheckoutPage() {
             </ul>
 
             <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5 border-t pt-5">
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { value: "PIX", label: "Pix", icon: QrCode },
-                    { value: "CREDIT_CARD", label: "Cartão de Crédito", icon: CreditCard },
-                  ] as const
-                ).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setBillingType(opt.value)}
-                    className={`flex items-center justify-center gap-2 rounded-lg border py-2.5 text-sm font-medium transition ${
-                      billingType === opt.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-input text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <opt.icon className="h-4 w-4" />
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 rounded-lg border border-primary bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary">
+                <QrCode className="h-4 w-4" />
+                Pagamento via Pix
               </div>
 
               <div className="space-y-3">
@@ -407,7 +386,7 @@ function CheckoutPage() {
                     Gerando Pix...
                   </>
                 ) : (
-                  <>Pagar {PLAN_PRICE_LABEL}</>
+                  <>Gerar Pix · {PLAN_PRICE_LABEL}</>
                 )}
               </Button>
 
