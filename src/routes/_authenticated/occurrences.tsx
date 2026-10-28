@@ -123,7 +123,10 @@ function OccurrencesPage() {
                       </div>
                     </div>
                   </div>
-                  <SeverityBadge severity={o.severity} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <SeverityBadge severity={o.severity} />
+                    <OccurrenceDeleteButton occurrence={o} />
+                  </div>
                 </div>
                 {o.description && (
                   <p className="text-xs text-muted-foreground">{o.description}</p>
