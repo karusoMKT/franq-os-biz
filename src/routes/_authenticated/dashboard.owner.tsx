@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/loading";
+import { occurrencesRecentCutoffIso } from "@/lib/occurrence-retention";
+import { OccurrenceDeleteButton } from "@/components/occurrence-delete-button";
 import { Building2, TrendingUp, TrendingDown, AlertTriangle, Target, MapPin, ShieldCheck, ClipboardCheck, Wallet, Percent } from "lucide-react";
 import { UnitsMap } from "@/components/units-map";
 import { useUnitContext } from "@/hooks/use-unit-context";
@@ -42,7 +44,7 @@ function OwnerDashboard() {
         supabase.from("units").select("id,name,city,state,latitude,longitude,score,status").eq("company_id", companyId!),
         supabase.from("unit_financial_summary").select("*").eq("company_id", companyId!),
         supabase.from("operational_scores").select("unit_id,score,status"),
-        supabase.from("occurrences").select("id,title,description,severity,status,created_at,unit_id").eq("company_id", companyId!).order("created_at", { ascending: false }).limit(20),
+        supabase.from("occurrences").select("id,title,description,severity,status,created_at,unit_id,company_id").eq("company_id", companyId!).gte("created_at", occurrencesRecentCutoffIso()).order("created_at", { ascending: false }).limit(20),
         supabase.from("notifications").select("id,is_read").eq("company_id", companyId!).eq("is_read", false),
       ]);
       const firstError = [units.error, fin.error, scores.error, occ.error, notif.error].find(Boolean);
