@@ -5,6 +5,7 @@ import { MobileShell } from "@/components/mobile-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PushOptIn } from "@/components/push-opt-in";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Proprietário",
@@ -35,6 +36,7 @@ function ProfilePage() {
         <div className="text-sm text-muted-foreground">{profile.email}</div>
         <Badge variant="secondary">{ROLE_LABELS[profile.role] ?? profile.role}</Badge>
       </Card>
+      <PushOptIn userId={profile.user_id} companyId={profile.company_id ?? null} />
       <Button variant="outline" className="w-full" onClick={signOut}>Sair</Button>
     </MobileShell>
   );
