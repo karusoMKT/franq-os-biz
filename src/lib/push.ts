@@ -1,6 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+const FALLBACK_VAPID_PUBLIC_KEY =
+  "BOA_lr117vg8J7_yvcAUMPY3QEfD7_cyq9-x5YxLlpshxp2CRCVAnbN5yMZvYPHmGsI0N9DRNUkj2HXkDoUBjZY";
+
+export function getVapidPublicKey() {
+  const env = import.meta.env as Record<string, string | undefined>;
+  return env.VAPID_PUBLIC_KEY || env.VITE_VAPID_PUBLIC_KEY || FALLBACK_VAPID_PUBLIC_KEY;
+}
 
 export function pushSupported() {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
